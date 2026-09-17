@@ -1,5 +1,6 @@
-# macOS
+# macOS / editors
 .DS_Store
+*.swp
 
 # Android / Gradle
 .gradle/
@@ -16,3 +17,7 @@ spikes/results/
 # Python
 __pycache__/
 *.pyc
+
+# Local helper output
+.cache/
+logs/

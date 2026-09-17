@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Bello</title>
+<link rel="stylesheet" href="face.css">
+</head>
+<body class="idle">
+<!--
+  The face is built from HTML elements, not SVG: only `transform` and `opacity` are animated, so
+  the GPU composites them without repainting the whole picture. An animated SVG costs ~13 % CPU
+  when idle on this tablet, this version ~0.5 % (see docs/feasibility-results.md, SP-06).
+-->
+<div id="stage">
+  <div id="face">
+    <div class="head">
+      <div class="strap"></div>
+      <div class="goggle">
+        <div class="ring"></div>
+        <div class="glow"></div>
+        <div class="glass">
+          <div id="pupil">
+            <div class="iris"></div>
+            <div class="highlight"></div>
+          </div>
+          <div id="lid"></div>
+          <div id="lidLow"></div>
+        </div>
+      </div>
+      <div id="mouth"></div>
+    </div>
+
+    <div class="overalls">
+      <div class="pocket"></div>
+      <div class="button left"></div>
+      <div class="button right"></div>
+    </div>
+  </div>
+
+  <div id="dots"><i></i><i></i><i></i></div>
+  <div id="zzz">z<span>z</span></div>
+  <div id="question">?</div>
+  <div id="bang">!</div>
+</div>
+
+<div id="clock"></div>
+<div id="subtitles">
+  <div id="user"></div>
+  <div id="answer"></div>
+</div>
+
+<script src="face.js"></script>
+</body>
+</html>

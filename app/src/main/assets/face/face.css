@@ -1,0 +1,259 @@
+/*
+ * Performance rules for this file (SP-06 budget, Chromium 95):
+ *  - animate only `transform` and `opacity` (GPU composited, no repaint);
+ *  - no infinite animation in idle/sleepy — idle life comes from JS timers;
+ *  - sizes in vh so the face scales with the screen without JS.
+ */
+:root {
+  --bg: #1d2b3a;
+  --skin-top: #ffe45c;
+  --skin: #f3c21a;
+  --skin-dark: #e0ad0c;
+  --dark: #34393e;
+  --mouth: #5a2a1a;
+  --denim: #2f6db5;
+  --text: #ffffff;
+  --muted: rgba(255, 255, 255, 0.62);
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  font-family: sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 10vh;
+  transition: opacity 1.2s;
+}
+
+#face { position: relative; width: 46vh; height: 74vh; }
+
+/* Head and body */
+.head {
+  position: absolute;
+  inset: 0 0 12vh 0;
+  border-radius: 23vh 23vh 19vh 19vh;
+  background: linear-gradient(180deg, var(--skin-top), var(--skin));
+  overflow: hidden;
+}
+
+
+.strap {
+  position: absolute;
+  top: 19.5vh;
+  left: 0;
+  right: 0;
+  height: 5.6vh;
+  background: var(--dark);
+}
+
+/* Goggle */
+.goggle {
+  position: absolute;
+  top: 8.6vh;
+  left: 50%;
+  width: 27vh;
+  height: 27vh;
+  margin-left: -13.5vh;
+  border-radius: 50%;
+  background: #8d969d;
+}
+.ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.4vh solid #5f676e;
+  box-sizing: border-box;
+}
+.glow {
+  position: absolute;
+  inset: -0.6vh;
+  border-radius: 50%;
+  border: 0.9vh solid #7fd4ff;
+  box-sizing: border-box;
+  opacity: 0;
+}
+.glass {
+  position: absolute;
+  inset: 3.4vh;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, #ffffff 0%, #dfe6ea 100%);
+  overflow: hidden;
+}
+
+/* Eye */
+#pupil {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 9.6vh;
+  height: 9.6vh;
+  margin: -4.8vh 0 0 -4.8vh;
+  border-radius: 50%;
+  background: #6b4226;
+  transition: transform .3s ease-out;
+  will-change: transform;
+}
+.iris {
+  position: absolute;
+  inset: 2.3vh;
+  border-radius: 50%;
+  background: #111;
+}
+.highlight {
+  position: absolute;
+  top: 1.2vh;
+  left: 1.4vh;
+  width: 2vh;
+  height: 2vh;
+  border-radius: 50%;
+  background: #fff;
+}
+
+#lid, #lidLow {
+  position: absolute;
+  left: -10%;
+  width: 120%;
+  height: 100%;
+  background: var(--skin);
+  will-change: transform;
+}
+#lid { top: 0; transform-origin: top center; transform: scaleY(0); transition: transform .09s linear; }
+#lidLow { bottom: 0; transform-origin: bottom center; transform: scaleY(0); transition: transform .3s; }
+body.blink #lid { transform: scaleY(1); }
+
+/* Mouth: one element, shape per state */
+#mouth {
+  position: absolute;
+  top: 40vh;
+  left: 50%;
+  width: 17vh;
+  height: 8vh;
+  margin-left: -8.5vh;
+  background: var(--mouth);
+  border-radius: 0 0 9vh 9vh;
+  transform-origin: top center;
+  will-change: transform;
+  transition: border-radius .2s, transform .2s, width .2s, height .2s, margin .2s;
+}
+body.happy #mouth { height: 11vh; width: 21vh; margin-left: -10.5vh; }
+body.speaking #mouth { border-radius: 50%; height: 7vh; animation: talk .26s ease-in-out infinite alternate; }
+body.listening #mouth, body.alert #mouth { width: 6vh; height: 6.6vh; margin-left: -3vh; border-radius: 50%; }
+body.thinking #mouth, body.sleepy #mouth { height: 1.5vh; width: 12vh; margin-left: -6vh; border-radius: 1vh; }
+body.sad #mouth { height: 7vh; border-radius: 9vh 9vh 0 0; transform: translateY(2vh); }
+body.confused #mouth {
+  height: 3.4vh;
+  width: 19vh;
+  margin-left: -9.5vh;
+  background: transparent;
+  border-radius: 0;
+  /* static wave, painted once */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 22'><path d='M4 14 Q16 2 28 14 T52 14 T76 14 T100 14 T116 10' fill='none' stroke='%235a2a1a' stroke-width='7' stroke-linecap='round'/></svg>");
+  background-size: 100% 100%;
+}
+
+/* Overalls */
+.overalls {
+  position: absolute;
+  left: 1vh;
+  right: 1vh;
+  bottom: 0;
+  height: 13vh;
+  background: var(--denim);
+  border-radius: 0 0 3vh 3vh;
+}
+.pocket {
+  position: absolute;
+  top: 1.6vh;
+  left: 50%;
+  width: 13vh;
+  height: 7vh;
+  margin-left: -6.5vh;
+  border-radius: 1.2vh;
+  background: #2a60a0;
+}
+.button { position: absolute; top: 0.4vh; width: 2vh; height: 2vh; border-radius: 50%; background: #1d1d1d; }
+.button.left { left: 1.6vh; }
+.button.right { right: 1.6vh; }
+
+/* State decorations */
+#dots, #zzz, #question, #bang {
+  position: absolute;
+  opacity: 0;
+  transition: opacity .3s;
+  pointer-events: none;
+}
+#dots { top: 18vh; left: 62%; display: flex; align-items: flex-end; }
+#dots i { display: block; background: #fff; border-radius: 50%; margin-left: 1.4vh; will-change: opacity; }
+#dots i:nth-child(1) { width: 1.6vh; height: 1.6vh; }
+#dots i:nth-child(2) { width: 2.2vh; height: 2.2vh; }
+#dots i:nth-child(3) { width: 3vh; height: 3vh; }
+#zzz { top: 16vh; left: 64%; color: #cfe3ff; font-size: 7vh; font-weight: bold; }
+#zzz span { font-size: 5vh; vertical-align: top; }
+#question { top: 12vh; left: 64%; color: #fff; font-size: 13vh; font-weight: bold; }
+#bang { top: 12vh; left: 64%; color: #ff5a4e; font-size: 13vh; font-weight: bold; }
+
+body.thinking #dots,
+body.sleepy #zzz,
+body.confused #question,
+body.alert #bang { opacity: 1; }
+
+/* Per-state expressions (transform/opacity only) */
+body.listening .goggle { transform: scale(1.05); transition: transform .3s; }
+body.listening .glow { animation: glow 1.4s ease-in-out infinite; }
+body.thinking #pupil { transform: translate(3.4vh, -3.6vh); }
+body.thinking #dots i { animation: pulse 1.2s ease-in-out infinite; }
+body.thinking #dots i:nth-child(2) { animation-delay: .2s; }
+body.thinking #dots i:nth-child(3) { animation-delay: .4s; }
+body.happy #lidLow { transform: scaleY(.42); }
+body.happy #face { animation: hop .5s ease-out 1; }
+body.sad #pupil { transform: translateY(3vh); }
+body.sad #lid { transform: scaleY(.34); transition: transform .3s; }
+body.confused #pupil { transform: translate(-3vh, -1.6vh); }
+body.confused #face { transform: rotate(-4deg); transition: transform .4s; }
+body.alert #face { animation: shake .5s ease-in-out infinite; }
+body.sleepy #lid { transform: scaleY(.72); transition: transform 1s; }
+body.sleepy #stage { opacity: .38; }
+
+@keyframes glow { 0%, 100% { opacity: .15; } 50% { opacity: .9; } }
+@keyframes pulse { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+@keyframes talk { from { transform: scaleY(.25); } to { transform: scaleY(1.15); } }
+@keyframes shake { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-3deg); } 75% { transform: rotate(3deg); } }
+@keyframes hop { 0% { transform: translateY(0); } 40% { transform: translateY(-2.6vh); } 100% { transform: translateY(0); } }
+
+/* Clock (updated once per minute) */
+#clock {
+  position: absolute;
+  top: 2.5vh;
+  right: 3vw;
+  color: var(--muted);
+  font-size: 7vh;
+  font-weight: 300;
+  letter-spacing: .05em;
+}
+body.sleepy #clock { color: rgba(255, 255, 255, .25); }
+
+/* Subtitles */
+#subtitles {
+  position: absolute;
+  left: 8vw;
+  right: 8vw;
+  bottom: 3vh;
+  text-align: center;
+  transition: opacity .6s;
+}
+#subtitles.hidden { opacity: 0; }
+#user { color: var(--muted); font-size: 3.4vh; margin-bottom: .6vh; }
+#answer { color: var(--text); font-size: 4.4vh; line-height: 1.25; max-height: 16vh; overflow: hidden; }
+#user:empty, #answer:empty { display: none; }

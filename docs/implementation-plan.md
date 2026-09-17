@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Phase 0 done · Phase 1 next |
+| Status | Phases 0–1 done · Phase 2 next |
 | Date | 2026-09-17 |
 | Inputs | [requirements.md](requirements.md) · [feasibility-results.md](feasibility-results.md) · [device-galaxy-tab4.md](device-galaxy-tab4.md) |
 | Target | Galaxy Tab 4 SM-T530, Android 5.0.2 (API 21), `armeabi-v7a`, serial `e3572b180497ec75` |
@@ -62,19 +62,35 @@ Goal: a production app skeleton that builds, installs, logs to its own file and 
 
 **Result (2026-09-17):** ✅ 5/5 JVM unit tests pass; on the tablet the self-check passes 7/7 — HTTPS with TLS 1.3 to Open-Meteo, a Let's Encrypt site and the Gemini API through the bundled CA; patched Vosk native library loads; model present and loads in ≈4.1 s. Log file retrieved with `scripts/pull-logs.sh`.
 
-### Phase 1 — Always-on shell and face ☐
+### Phase 1 — Always-on shell and face ☑
 
-| ID | Task |
-|---|---|
-| P1-1 | `MainActivity`: fullscreen immersive, `FLAG_KEEP_SCREEN_ON`, landscape, HOME/launcher intent filter (FR-ON-01/02/04) |
-| P1-2 | `BootReceiver` → start service and activity after `BOOT_COMPLETED` (FR-ON-03) |
-| P1-3 | `AssistantService`: foreground service with notification, partial wake lock, `START_STICKY`, watchdog re-launching the activity (FR-ON-05, AD-03) |
-| P1-4 | Face WebView from local assets; JS bridge `setState(state)`, `setSubtitle(user, answer)`; states idle, listening, thinking, speaking, happy, confused, sad/offline, alert, sleepy (FR-FACE-01..03, 06, 07) |
-| P1-5 | Low-CPU idle: no continuous CSS/rAF loops, JS blink timer, per-minute clock (SP-06 finding) |
-| P1-6 | Original Minion-style artwork (FR-FACE-09) — placeholder SVG from SP-06 until a design is chosen |
-| P1-7 | Text input overlay (FR-CONV-03) and subtitle area |
+| ID | Task | Status |
+|---|---|---|
+| P1-1 | `MainActivity`: fullscreen immersive, `FLAG_KEEP_SCREEN_ON`, landscape, HOME/launcher intent filter (FR-ON-01/02/04) | ☑ |
+| P1-2 | `BootReceiver` → start service and activity after `BOOT_COMPLETED` (FR-ON-03) | ☑ |
+| P1-3 | `AssistantService`: foreground service with notification, partial wake lock, `START_STICKY`, watchdog re-launching the activity (FR-ON-05, AD-03) | ☑ |
+| P1-4 | Face WebView from local assets; JS bridge `setState(state)`, `setSubtitle(user, answer)`; states idle, listening, thinking, speaking, happy, confused, sad/offline, alert, sleepy (FR-FACE-01..03, 06, 07) | ☑ |
+| P1-5 | Low-CPU idle: no continuous CSS/rAF loops, JS blink timer, per-minute clock (SP-06 finding) | ☑ |
+| P1-6 | Original Minion-style artwork (FR-FACE-09) — placeholder SVG from SP-06 until a design is chosen | ☑ |
+| P1-7 | Text input overlay (FR-CONV-03) and subtitle area | ☑ |
 
 **Done when:** after a reboot the face appears within 60 s with no manual action; typed text shows as a subtitle; idle process CPU ≤ 12 %.
+
+**Result (2026-09-17):** ✅ all criteria met on the tablet.
+
+| Criterion | Result |
+|---|---|
+| Face after reboot | `FACE_READY` **3 s after `BOOT_COMPLETED`** (device boot itself ≈162 s), screen woken, no manual action |
+| Typed text | Works from the on-screen bar (Aa button) and from `scripts/text.sh` |
+| Idle CPU | **6.1 % avg / 8 % max** over 5 min; 60 MB PSS; 29 °C |
+| Watchdog | Face restored 66 s after switching to Settings |
+| Crash recovery | `scripts/crash-test.sh`: no system dialog, face back in ≈1 s |
+
+**Findings that shaped the code:**
+- **The face had to be rebuilt in HTML/CSS instead of SVG.** Animating an SVG repaints the whole picture every frame on this device: idle CPU was 13 % with an animated SVG and 0.3 % with a frozen one. HTML elements plus sparse idle animation (blink every 4.5–9 s, glance every 18–35 s) gives 6 %.
+- **Crashes must be handled by the app.** Letting Android show "Unfortunately, Bello has stopped" would leave the dialog on screen forever; the app now logs, schedules a restart and ends its own process.
+- **After a reboot the screen stays asleep**, so the activity needs `FLAG_TURN_SCREEN_ON`, `FLAG_SHOW_WHEN_LOCKED` and `FLAG_DISMISS_KEYGUARD`.
+- Android 5's font has no ⌨ or ➤ glyphs (they render as boxes) — plain text labels are used instead.
 
 ### Phase 2 — Voice loop ☐
 

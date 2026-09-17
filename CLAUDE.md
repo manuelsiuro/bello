@@ -24,7 +24,23 @@ scripts/install.sh      # install on the tablet and launch
 scripts/push-model.sh   # download (cached in .cache/) and push the Vosk French model, once
 scripts/selfcheck.sh    # run the on-device platform self-check (TLS, Vosk) and print results
 scripts/pull-logs.sh    # copy app logs to ./logs and print the tail
+scripts/face.sh <state> # idle listening thinking speaking happy confused sad alert sleepy
+scripts/text.sh "…"     # send a typed question
+scripts/kiosk.sh on|off # watchdog that brings the face back (turn off to use other apps)
+scripts/perf.sh [n]     # summarise the last n PERF samples (CPU, temperature, memory)
+scripts/reboot-test.sh  # reboot the tablet and wait for the face to be ready
+scripts/crash-test.sh   # debug builds: crash on purpose and check the app restarts itself
 ```
+
+Inspect the face page from the Mac (debug builds):
+
+```bash
+PID=$(adb -s e3572b180497ec75 shell ps | grep com.bello.assistant | awk '{print $2}' | tr -d '\r' | head -1)
+adb -s e3572b180497ec75 forward tcp:9222 localabstract:webview_devtools_remote_$PID
+python3 spikes/tools/cdp.py 'bello.getState()'
+```
+
+Home screen: after installing, press Home on the tablet and choose Bello → "Always" to make it the launcher.
 
 ## Conventions and constraints
 
@@ -32,4 +48,6 @@ scripts/pull-logs.sh    # copy app logs to ./logs and print the tail
 - All HTTPS goes through `net/HttpClients` (Conscrypt + bundled `assets/cacert.pem`); the device's system CA store rejects Let's Encrypt sites.
 - Vosk: the bundled `libvosk.so` is patched to need `libstdiofix.so`; always call `VoskRuntime.load()` before using Vosk.
 - Log with `core/FileLog` — logcat is flooded by the Samsung camera HAL; the app log file is the source of truth.
+- Face (`assets/face/`): HTML/CSS, never SVG for animated parts — animating SVG repaints the whole face every frame (13 % CPU idle vs 6 % now). No infinite animation in idle/sleepy; idle life comes from sparse JS timers. Chromium 95 features only.
+- Crashes are handled by the app (log, schedule restart, kill own process) so Android never shows its crash dialog on this always-on device.
 - No API keys in the repository.

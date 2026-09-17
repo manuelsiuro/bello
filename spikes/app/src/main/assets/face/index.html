@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bello Face Spike</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1d2b3a; overflow: hidden; font-family: sans-serif; }
+  #stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  svg { width: 78vh; height: 78vh; }
+  .eyeGroup { transform-origin: 400px 330px; }
+  .pupil { animation: look 6s ease-in-out infinite; }
+  .lid { transform-origin: 400px 250px; transform: scaleY(0); animation: blink 4.2s infinite; }
+  .mouth { transform-origin: 400px 560px; transition: transform .2s; }
+  body.speaking .mouth { animation: talk .28s ease-in-out infinite alternate; }
+  body.listening .eyeGroup { transform: scale(1.08); transition: transform .3s; }
+  body.listening .pupil { animation: none; }
+  body.thinking .pupil { animation: think 1.6s ease-in-out infinite; }
+  body.sleepy .lid { animation: none; transform: scaleY(.65); }
+  body.sleepy #stage { filter: brightness(.35); }
+  .dots { opacity: 0; }
+  body.thinking .dots { opacity: 1; animation: pulse 1s infinite; }
+  #clock { position: absolute; right: 3vw; top: 2vh; color: #fff8; font-size: 6vh; }
+  #hud { position: absolute; left: 1vw; bottom: 1vh; color: #fff9; font-size: 2.4vh; }
+  @keyframes blink { 0%, 92%, 100% { transform: scaleY(0); } 95% { transform: scaleY(1); } }
+  @keyframes look { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(-28px, 6px); } 55% { transform: translate(26px, -4px); } 75% { transform: translate(0, 14px); } }
+  @keyframes think { 0%, 100% { transform: translate(18px, -26px); } 50% { transform: translate(-18px, -26px); } }
+  @keyframes talk { from { transform: scaleY(.25); } to { transform: scaleY(1.15); } }
+  @keyframes pulse { 50% { opacity: .3; } }
+</style>
+</head>
+<body class="idle">
+<div id="stage">
+  <svg viewBox="0 0 800 800" aria-label="Minion-style face">
+    <defs>
+      <linearGradient id="skin" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0" stop-color="#ffe45c"/><stop offset="1" stop-color="#f5c518"/>
+      </linearGradient>
+      <radialGradient id="glass" cx=".4" cy=".35" r=".7">
+        <stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#dfe6ea"/>
+      </radialGradient>
+      <clipPath id="eyeClip"><circle cx="400" cy="330" r="118"/></clipPath>
+    </defs>
+    <rect x="130" y="40" width="540" height="760" rx="270" fill="url(#skin)"/>
+    <rect x="130" y="290" width="540" height="80" fill="#333"/>
+    <g class="eyeGroup">
+      <circle cx="400" cy="330" r="160" fill="#8a9299" stroke="#5c646b" stroke-width="14"/>
+      <circle cx="400" cy="330" r="118" fill="url(#glass)"/>
+      <g clip-path="url(#eyeClip)">
+        <g class="pupil">
+          <circle cx="400" cy="335" r="56" fill="#6b4226"/>
+          <circle cx="400" cy="335" r="30" fill="#111"/>
+          <circle cx="384" cy="318" r="10" fill="#fff"/>
+        </g>
+        <rect class="lid" x="270" y="200" width="260" height="260" fill="#f5c518"/>
+      </g>
+    </g>
+    <g class="dots" fill="#333">
+      <circle cx="560" cy="150" r="14"/><circle cx="600" cy="115" r="18"/><circle cx="650" cy="75" r="24"/>
+    </g>
+    <path class="mouth" d="M300 540 Q400 640 500 540 Q400 590 300 540 Z" fill="#5a2a1a"/>
+    <path d="M150 700 H650 V800 H150 Z" fill="#2f6db5"/>
+  </svg>
+</div>
+<div id="clock"></div>
+<div id="hud"></div>
+<script>
+  function setState(s) { document.body.className = s; }
+  function tickClock() {
+    var d = new Date();
+    document.getElementById('clock').textContent =
+      ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2);
+  }
+  setInterval(tickClock, 1000); tickClock();
+
+  var last = 0, frames = [], windowStart = performance.now();
+  function loop(t) {
+    if (last) frames.push(t - last);
+    last = t;
+    if (t - windowStart >= 5000) {
+      var n = frames.length, sum = 0, sorted = frames.slice().sort(function (a, b) { return a - b; });
+      frames.forEach(function (f) { sum += f; });
+      var fps = n ? (1000 * n / sum) : 0;
+      var p95 = n ? sorted[Math.floor(n * 0.95)] : 0;
+      var longFrames = frames.filter(function (f) { return f > 50; }).length;
+      var report = 'state=' + document.body.className + ' fps=' + fps.toFixed(1) + ' p95ms=' + p95.toFixed(1) + ' long50=' + longFrames + ' frames=' + n;
+      document.getElementById('hud').textContent = report;
+      try { Bello.fps(report); } catch (e) {}
+      frames = []; windowStart = t;
+    }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+</script>
+</body>
+</html>

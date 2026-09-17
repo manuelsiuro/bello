@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+
+# Android / Gradle
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+captures/
+
+# Large or generated spike artefacts
+spikes/assets-download/
+spikes/results/
+
+# Python
+__pycache__/
+*.pyc

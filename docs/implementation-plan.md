@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Phases 0–1 done · Phase 2 next |
+| Status | Phases 0–2 done · Phase 3 next |
 | Date | 2026-09-17 |
 | Inputs | [requirements.md](requirements.md) · [feasibility-results.md](feasibility-results.md) · [device-galaxy-tab4.md](device-galaxy-tab4.md) |
 | Target | Galaxy Tab 4 SM-T530, Android 5.0.2 (API 21), `armeabi-v7a`, serial `e3572b180497ec75` |
@@ -92,18 +92,33 @@ Goal: a production app skeleton that builds, installs, logs to its own file and 
 - **After a reboot the screen stays asleep**, so the activity needs `FLAG_TURN_SCREEN_ON`, `FLAG_SHOW_WHEN_LOCKED` and `FLAG_DISMISS_KEYGUARD`.
 - Android 5's font has no ⌨ or ➤ glyphs (they render as boxes) — plain text labels are used instead.
 
-### Phase 2 — Voice loop ☐
+### Phase 2 — Voice loop ☑
 
-| ID | Task |
-|---|---|
-| P2-1 | `SpeechInput` wrapping Android `SpeechRecognizer` fr-FR with partial results and error mapping (FR-STT-01, 05) |
-| P2-2 | `SpeechOutput` wrapping `TextToSpeech` fr-FR, pitch/rate settings, utterance progress → face mouth (FR-TTS-01..03) |
-| P2-3 | Conversation state machine: idle → listening → thinking → speaking → follow-up window → idle (FR-CONV-01..07, 10) |
-| P2-4 | Tap-to-talk, tap-to-stop speech (barge-in) |
-| P2-5 | `SpeechTextNormalizer`: numbers/times ("10 minutes", "7h30") and `TtsSanitizer` for markdown/emoji (FR-CONV-09) |
-| P2-6 | Echo/stub answer provider to test the loop without an LLM |
+| ID | Task | Status |
+|---|---|---|
+| P2-1 | `SpeechInput` wrapping Android `SpeechRecognizer` fr-FR with partial results and error mapping (FR-STT-01, 05) | ☑ |
+| P2-2 | `SpeechOutput` wrapping `TextToSpeech` fr-FR, pitch/rate settings, utterance progress → face mouth (FR-TTS-01..03) | ☑ |
+| P2-3 | Conversation state machine: idle → listening → thinking → speaking → follow-up window → idle (FR-CONV-01..07, 10) | ☑ |
+| P2-4 | Tap-to-talk, tap-to-stop speech (barge-in) | ☑ |
+| P2-5 | `SpeechTextNormalizer`: numbers/times ("10 minutes", "7h30") and `TtsSanitizer` for markdown/emoji (FR-CONV-09) | ☑ |
+| P2-6 | Echo/stub answer provider to test the loop without an LLM | ☑ |
 
 **Done when:** tapping the face and speaking a French sentence produces a spoken + written stub reply with correct face states.
+
+**Result (2026-09-17):** ✅ met on the tablet.
+
+| Check | Result |
+|---|---|
+| Voice round trip | Tap → "Bonjour Bello, comment vas-tu ?" recognised (conf 0.93) → spoken + written reply, face listening → thinking → speaking → idle |
+| Two turns without tapping | Second question answered inside the 6 s follow-up window; silence then ends the exchange quietly |
+| Barge-in | Tap during speech stops it immediately and returns to idle |
+| Loop latency | Recognition result → speech start: 18–30 ms (stub answer; network time arrives with Phase 3) |
+| Voice | Google TTS, `fra_FRA`, pitch 1.6 / rate 1.05 |
+
+**Findings:**
+- **Name the TTS engine explicitly.** With no default engine set on this tablet, Samsung's voice service opened a Galaxy Store page over the face mid-conversation. The kiosk watchdog restored the face, but the app now asks for `com.google.android.tts`.
+- **The recognizer reports BUSY** when started immediately after speaking; a 400 ms pause plus one silent retry fixes the follow-up window.
+- Spoken-text clean-up must keep symbols like `°` while removing emoji and markdown.
 
 ### Phase 3 — LLM gateway ☐
 

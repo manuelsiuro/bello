@@ -30,6 +30,9 @@ scripts/kiosk.sh on|off # watchdog that brings the face back (turn off to use ot
 scripts/perf.sh [n]     # summarise the last n PERF samples (CPU, temperature, memory)
 scripts/reboot-test.sh  # reboot the tablet and wait for the face to be ready
 scripts/crash-test.sh   # debug builds: crash on purpose and check the app restarts itself
+scripts/speak.sh "…"    # make Bello say a sentence (tests the voice)
+scripts/voice.sh 1.6 1.05   # set TTS pitch and rate
+scripts/ask-voice.sh "…"    # full voice round trip: taps the face, plays the phrase from the Mac
 ```
 
 Inspect the face page from the Mac (debug builds):
@@ -50,4 +53,5 @@ Home screen: after installing, press Home on the tablet and choose Bello → "Al
 - Log with `core/FileLog` — logcat is flooded by the Samsung camera HAL; the app log file is the source of truth.
 - Face (`assets/face/`): HTML/CSS, never SVG for animated parts — animating SVG repaints the whole face every frame (13 % CPU idle vs 6 % now). No infinite animation in idle/sleepy; idle life comes from sparse JS timers. Chromium 95 features only.
 - Crashes are handled by the app (log, schedule restart, kill own process) so Android never shows its crash dialog on this always-on device.
+- Voice: speech in/out live in `voice/`; Google's TTS engine is requested by name, otherwise the system may open a store page over the face. Start the recognizer with a short delay after speaking (it reports BUSY otherwise).
 - No API keys in the repository.

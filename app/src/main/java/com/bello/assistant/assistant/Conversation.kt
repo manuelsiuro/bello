@@ -1,0 +1,36 @@
+package com.bello.assistant.assistant
+
+import com.bello.assistant.ui.FaceState
+
+/** Where the conversation is. Drives the face and what a tap does. */
+enum class Turn { IDLE, LISTENING, THINKING, SPEAKING, FOLLOW_UP }
+
+/** Pure conversation rules, unit tested. */
+object ConversationPolicy {
+
+    fun face(turn: Turn): FaceState = when (turn) {
+        Turn.IDLE -> FaceState.IDLE
+        Turn.LISTENING, Turn.FOLLOW_UP -> FaceState.LISTENING
+        Turn.THINKING -> FaceState.THINKING
+        Turn.SPEAKING -> FaceState.SPEAKING
+    }
+
+    /** What a tap on the face means in each turn (FR-CONV-02, FR-CONV-06). */
+    enum class TapAction { START_LISTENING, STOP_SPEAKING, CANCEL }
+
+    fun onTap(turn: Turn): TapAction = when (turn) {
+        Turn.IDLE -> TapAction.START_LISTENING
+        Turn.SPEAKING -> TapAction.STOP_SPEAKING
+        Turn.LISTENING, Turn.FOLLOW_UP, Turn.THINKING -> TapAction.CANCEL
+    }
+
+    /**
+     * After an answer the assistant listens again for a moment (FR-CONV-07), but not after an
+     * error message and not when the follow-up window is disabled.
+     */
+    fun shouldFollowUp(turn: Turn, wasError: Boolean, followUpMs: Int): Boolean =
+        turn == Turn.SPEAKING && !wasError && followUpMs > 0
+
+    /** A failed recognition in a follow-up window ends the exchange silently (no "I didn't hear"). */
+    fun silentOnNoSpeech(turn: Turn): Boolean = turn == Turn.FOLLOW_UP
+}

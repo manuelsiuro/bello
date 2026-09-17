@@ -48,7 +48,7 @@ class MainActivity : Activity(), FaceView.Listener {
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN)
 
         face = FaceView(this, this)
-        assistant = Assistant(face)
+        assistant = Assistant(this, face)
         val root = FrameLayout(this)
         root.addView(face, FrameLayout.LayoutParams(-1, -1))
         root.addView(keyboardButton(), FrameLayout.LayoutParams(dp(64), dp(64), Gravity.BOTTOM or Gravity.END).apply {
@@ -99,6 +99,11 @@ class MainActivity : Activity(), FaceView.Listener {
         if (inputBar.visibility == View.VISIBLE) toggleInput(false) else assistant.onTap()
     }
 
+    override fun onDestroy() {
+        assistant.release()
+        super.onDestroy()
+    }
+
     override fun onFaceLongPress() {
         FileLog.i(TAG, "long press (settings arrive in Phase 6)")
     }
@@ -115,6 +120,14 @@ class MainActivity : Activity(), FaceView.Listener {
             FaceState.fromJs(s)?.let { face.setState(it) } ?: FileLog.w(TAG, "unknown state '$s'")
         }
         intent.getStringExtra(EXTRA_TEXT)?.let { assistant.onUserText(it) }
+        intent.getStringExtra(EXTRA_SPEAK)?.let { assistant.speakNow(it) }
+        if (intent.getBooleanExtra(EXTRA_TAP, false)) assistant.onTap()
+        intent.getStringExtra(EXTRA_VOICE)?.let { spec ->
+            val parts = spec.split(",")
+            val pitch = parts.getOrNull(0)?.toFloatOrNull()
+            val rate = parts.getOrNull(1)?.toFloatOrNull()
+            if (pitch != null && rate != null) assistant.setVoiceParams(pitch, rate)
+        }
         if (intent.getBooleanExtra(EXTRA_CRASH, false) && isDebuggable()) {
             FileLog.w(TAG, "crash requested (debug build) — testing crash logging and restart")
             throw IllegalStateException("Bello test crash")
@@ -209,5 +222,8 @@ class MainActivity : Activity(), FaceView.Listener {
         const val EXTRA_KIOSK = "kiosk"
         const val EXTRA_LAUNCH_REASON = "launchReason"
         const val EXTRA_CRASH = "crash"
+        const val EXTRA_SPEAK = "speak"
+        const val EXTRA_TAP = "tap"
+        const val EXTRA_VOICE = "voice"
     }
 }

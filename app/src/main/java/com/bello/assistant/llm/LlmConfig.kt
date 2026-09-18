@@ -10,6 +10,12 @@ data class ProviderConfig(
     val apiKey: String,
     val model: String,
     val enabled: Boolean,
+    /**
+     * Extra JSON fields merged into the request body, as a raw object. Needed because thinking
+     * models bill their thinking against `max_tokens`: Gemini 3 cut its answers in half until
+     * `reasoning_effort` was turned down.
+     */
+    val extra: String = "",
 ) {
     enum class Type { OPENAI, GEMINI_WEB }
 
@@ -33,12 +39,17 @@ data class LlmConfig(
         /**
          * Free-tier presets (FR-LLM-02). Everything speaks the OpenAI chat-completions dialect,
          * including Gemini through its compatibility endpoint, so one client covers them all.
+         *
+         * Model names go stale — providers retire them and answer 404. `scripts/models.sh <id>`
+         * lists what a key can actually use; set `model` in the config file to override.
          */
         val PRESETS: Map<String, ProviderConfig> = listOf(
             ProviderConfig("gemini", ProviderConfig.Type.OPENAI,
-                "https://generativelanguage.googleapis.com/v1beta/openai", "", "gemini-2.0-flash", true),
+                "https://generativelanguage.googleapis.com/v1beta/openai", "", "gemini-3.6-flash", true,
+                extra = """{"reasoning_effort":"none"}"""),
             ProviderConfig("groq", ProviderConfig.Type.OPENAI,
-                "https://api.groq.com/openai/v1", "", "llama-3.3-70b-versatile", true),
+                "https://api.groq.com/openai/v1", "", "openai/gpt-oss-20b", true,
+                extra = """{"reasoning_effort":"low"}"""),
             ProviderConfig("mistral", ProviderConfig.Type.OPENAI,
                 "https://api.mistral.ai/v1", "", "mistral-small-latest", true),
             ProviderConfig("cerebras", ProviderConfig.Type.OPENAI,
@@ -88,6 +99,7 @@ data class LlmConfig(
                     apiKey = o.optString("key").ifEmpty { o.optString("apiKey") }.trim(),
                     model = o.optString("model").ifEmpty { base.model },
                     enabled = o.optBoolean("enabled", base.enabled),
+                    extra = o.optJSONObject("extra")?.toString() ?: base.extra,
                 )
                 if (cfg.type == ProviderConfig.Type.OPENAI && cfg.apiKey.isEmpty()) {
                     problems += "provider '${cfg.id}': no API key, ignored"

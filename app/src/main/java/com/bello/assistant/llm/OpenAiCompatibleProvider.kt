@@ -32,6 +32,7 @@ class OpenAiCompatibleProvider(
             .put("max_tokens", request.maxTokens)
             .put("temperature", 0.7)
             .put("stream", false)
+            .withExtra(config.extra)
             .toString()
         val http = Request.Builder()
             .url("${config.baseUrl}/chat/completions")
@@ -61,6 +62,17 @@ class OpenAiCompatibleProvider(
             FileLog.w(TAG, "${config.id} call failed", t)
             LlmResult.Failed(kindOf(t), "${t.javaClass.simpleName}: ${t.message}")
         }
+    }
+
+    /** Provider-specific fields from the config, e.g. how much a model may think before answering. */
+    private fun JSONObject.withExtra(extra: String): JSONObject {
+        if (extra.isBlank()) return this
+        val parsed = runCatching { JSONObject(extra) }.getOrElse {
+            FileLog.w(TAG, "${config.id}: ignoring unreadable extra fields: $extra")
+            return this
+        }
+        parsed.keys().forEach { put(it, parsed.get(it)) }
+        return this
     }
 
     private fun messages(request: LlmRequest) = JSONArray().apply {

@@ -11,7 +11,7 @@ class LlmConfigTest {
         val groq = config.providers.single()
         assertEquals("groq", groq.id)
         assertEquals("https://api.groq.com/openai/v1", groq.baseUrl)
-        assertEquals("llama-3.3-70b-versatile", groq.model)
+        assertEquals("openai/gpt-oss-20b", groq.model)
         assertEquals("gsk_x", groq.apiKey)
         assertTrue(groq.enabled)
     }
@@ -63,6 +63,16 @@ class LlmConfigTest {
         val config = LlmConfig.parse("{oops")
         assertTrue(config.providers.isEmpty())
         assertTrue(config.problems.single().contains("not valid JSON"))
+    }
+
+    @Test fun `presets carry their extra request fields, and the file can override them`() {
+        val preset = LlmConfig.parse("""{"providers":[{"preset":"gemini","key":"a"}]}""")
+        assertTrue(preset.providers.single().extra.contains("reasoning_effort"))
+
+        val custom = LlmConfig.parse(
+            """{"providers":[{"preset":"gemini","key":"a","extra":{"temperature":0.1}}]}"""
+        )
+        assertTrue(custom.providers.single().extra.contains("temperature"))
     }
 
     @Test fun `timeouts and persona have defaults and can be overridden`() {

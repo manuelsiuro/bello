@@ -139,6 +139,8 @@ the answer is spoken when it is complete.
 
 | Check | Result |
 |---|---|
+| Real providers (keys added 2026-09-18) | Gemini `gemini-3.6-flash` **1.2–1.9 s**, Groq `openai/gpt-oss-20b` **0.6 s**, both in French and in persona |
+| Voice round trip | Spoken "Bello, quelle est la hauteur de la tour Eiffel ?" (conf 0.88) → answered by Gemini in 1.2 s → *"Bello! La tour Eiffel mesure environ trois cent trente mètres… C'est presque aussi grand qu'une pyramide de banana géante!"* |
 | Fallback on 429 (criterion 3) | `scripts/fallback-test.sh`: two fake providers reached through `adb reverse`, the first always 429. Log: `LLM_FAIL fake-429 RATE_LIMIT` → `LLM_OK fake-ok`, spoken answer |
 | Cooldown | The next question skips the rate-limited provider: `skipped=fake-429 (cooldown 52s)`; `Retry-After` is honoured when sent |
 | Gemini Web, no key (criterion 4) | "Qui a peint la Joconde ?" → *"Bello, c'est Léonard de Vinci qui a peint la fameuse Joconde… Poopaye et bonne journée dans le salon!"* — **11–12 s** on a warm page, 27 s including the page load |
@@ -161,6 +163,12 @@ the answer is spoken when it is complete.
   the fact; the conversation now tags each question and drops answers to older ones.
 - **The follow-up window was wiping the written answer** — a question and its answer now stay on
   screen while Bello listens for the follow-up.
+- **Free-tier model names rot, and a retired model answers 404 forever.** Both presets were dead
+  within a day of being written (`gemini-2.0-flash`, `llama-3.3-70b-versatile`). `scripts/models.sh`
+  lists what a key can actually use, and the config file overrides the preset.
+- **Thinking models bill their thinking against `max_tokens`.** Gemini 3 was cutting answers in
+  half mid-sentence and spending 400 tokens of quota on 50 tokens of answer. Providers now carry
+  extra request fields (`reasoning_effort`), which also made answers three times faster.
 - **"The page loaded" is not a health check.** A wrong URL loads a perfectly good 404 page, and the
   real page needs a few seconds before its editor exists. The check now waits for the page to
   actually accept a question, and an unusable page is skipped for 30 minutes.

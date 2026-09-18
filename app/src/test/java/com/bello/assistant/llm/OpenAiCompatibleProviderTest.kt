@@ -22,13 +22,30 @@ class OpenAiCompatibleProviderTest {
 
     @After fun stop() = server.shutdown()
 
-    private fun provider(): OpenAiCompatibleProvider {
+    private fun provider(extra: String = ""): OpenAiCompatibleProvider {
         val config = ProviderConfig(
             id = "test", type = ProviderConfig.Type.OPENAI,
             baseUrl = server.url("/v1").toString().trimEnd('/'),
-            apiKey = "secret", model = "test-model", enabled = true,
+            apiKey = "secret", model = "test-model", enabled = true, extra = extra,
         )
         return OpenAiCompatibleProvider(config, OkHttpClient())
+    }
+
+    @Test fun `extra fields from the config are sent with the request`() {
+        server.enqueue(MockResponse().setBody("""{"choices":[{"message":{"content":"ok"}}]}"""))
+        provider("""{"reasoning_effort":"none"}""").complete(
+            LlmRequest("s", listOf(LlmMessage.user("q")), timeoutMs = 3_000)
+        )
+        val body = JSONObject(server.takeRequest().body.readUtf8())
+        assertEquals("none", body.getString("reasoning_effort"))
+    }
+
+    @Test fun `unreadable extra fields are ignored, not fatal`() {
+        server.enqueue(MockResponse().setBody("""{"choices":[{"message":{"content":"ok"}}]}"""))
+        val result = provider("not json").complete(
+            LlmRequest("s", listOf(LlmMessage.user("q")), timeoutMs = 3_000)
+        )
+        assertTrue(result is LlmResult.Ok)
     }
 
     private fun ask() = provider().complete(

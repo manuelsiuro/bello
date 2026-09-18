@@ -37,6 +37,7 @@ scripts/push-config.sh      # push config/bello.local.json (API keys) to the tab
 scripts/llm.sh status       # provider health: ok/fail counts, daily use, cooldowns
 scripts/overlay.sh on|off   # debug overlay on the face (state, provider, latency, memory)
 scripts/fallback-test.sh    # forces a 429 from a fake provider and checks the fallback + cooldown
+scripts/models.sh gemini    # list the models a configured key can actually use
 ```
 
 API keys: copy `config/bello.example.json` to `config/bello.local.json` (git-ignored), add your free
@@ -64,6 +65,9 @@ Home screen: after installing, press Home on the tablet and choose Bello → "Al
 - LLM: every provider goes through `llm/LlmGateway` (ordered providers, fallback, cooldowns). Free
   tiers speak the OpenAI dialect, Gemini included. Answers may start with an emotion tag (`[happy]`)
   that `llm/Persona` turns into a face expression.
+- Provider models go stale (a retired model answers 404 forever) — check with `scripts/models.sh`.
+  Thinking models spend `max_tokens` on thinking, so presets send `reasoning_effort`; per-provider
+  request fields live in the config under `extra`.
 - Gemini Web (`llm/GeminiWebProvider`, off by default) is key-free but expensive: the loaded page
   costs ~48 % CPU and ~190 MB, so it is loaded around a question and released 90 s later. Its
   selectors live in `assets/gemini/gemini.js`, replaceable by pushing a file to the device.

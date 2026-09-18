@@ -12,7 +12,8 @@ data class LlmRequest(
     val system: String,
     val messages: List<LlmMessage>,
     val timeoutMs: Int = 20_000,
-    val maxTokens: Int = 320,
+    // Reasoning models (Groq's gpt-oss) spend part of this budget thinking before answering.
+    val maxTokens: Int = 512,
 )
 
 /** Why a call failed. The gateway always tries the next provider; the kind sets the cooldown. */

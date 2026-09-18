@@ -8,8 +8,9 @@ enum class Turn { IDLE, LISTENING, THINKING, SPEAKING, FOLLOW_UP }
 /** Pure conversation rules, unit tested. */
 object ConversationPolicy {
 
-    fun face(turn: Turn): FaceState = when (turn) {
-        Turn.IDLE -> FaceState.IDLE
+    /** At night an idle Bello dozes rather than stares (FR-ON-06); everything else looks the same. */
+    fun face(turn: Turn, night: Boolean = false): FaceState = when (turn) {
+        Turn.IDLE -> if (night) FaceState.SLEEPY else FaceState.IDLE
         Turn.LISTENING, Turn.FOLLOW_UP -> FaceState.LISTENING
         Turn.THINKING -> FaceState.THINKING
         Turn.SPEAKING -> FaceState.SPEAKING

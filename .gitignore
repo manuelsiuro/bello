@@ -22,5 +22,7 @@ __pycache__/
 .cache/
 logs/
 
-# API keys stay on the device, never in git
-config/*.local.json
+# API keys stay on the device, never in git. Exports can carry them, so the whole config folder
+# is ignored apart from the example.
+config/*
+!config/bello.example.json

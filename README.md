@@ -4,7 +4,7 @@ An always-on, French-speaking voice assistant with a Minion face, running on a *
 (2014, Android 5.0.2)** that would otherwise be in a drawer. Ask out loud or type; it answers out
 loud and on screen. Running cost: **zero** — free API tiers only, and a key-free fallback.
 
-![state](https://img.shields.io/badge/phases%200--5-done-brightgreen) ![device](https://img.shields.io/badge/Android-5.0.2%20(API%2021)-blue)
+![state](https://img.shields.io/badge/phases%200--6-done-brightgreen) ![device](https://img.shields.io/badge/Android-5.0.2%20(API%2021)-blue)
 
 ## What works today
 
@@ -30,9 +30,19 @@ loud and on screen. Running cost: **zero** — free API tiers only, and a key-fr
   and alarms with an on-screen countdown and a spoken label, the weather for any town (Open-Meteo,
   no key), and the day's headlines from Le Monde and franceinfo.
 - **Alarms survive a reboot** — set one, restart the tablet, it still rings on time.
+- **It notices you.** The front camera looks at one small frame every two seconds; walk up after a
+  while away and Bello brightens up. No image is ever stored or sent — only "a face, or not" leaves
+  the camera code — and it can be turned off.
+- **It sleeps at night.** Between 23:00 and 07:00 the screen dims right down and the face dozes;
+  talk to it and the screen comes back for as long as the conversation lasts. The wake word keeps
+  listening through the night.
+- **Settings without a computer.** Long-press the face (behind a PIN, if you set one) for the wake
+  word, the voice, the night hours, the camera and four test buttons. The whole configuration
+  exports to one JSON file, which you can edit on a computer and push back — with the API keys
+  masked, so the file is safe to keep or share.
 - **A face that costs almost nothing.** HTML/CSS, ~6 % CPU idle and ~67 MB on a 2014 tablet.
 
-Still to come: presence detection, night dimming and a settings screen. See the [implementation plan](docs/implementation-plan.md).
+Still to come: a week of unattended running, and the last of the acceptance tests. See the [implementation plan](docs/implementation-plan.md).
 
 ## Things you can say
 

@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Phases 0–5 done · Phase 6 next |
+| Status | Phases 0–6 done · Phase 7 next |
 | Date | 2026-09-18 |
 | Inputs | [requirements.md](requirements.md) · [feasibility-results.md](feasibility-results.md) · [device-galaxy-tab4.md](device-galaxy-tab4.md) |
 | Target | Galaxy Tab 4 SM-T530, Android 5.0.2 (API 21), `armeabi-v7a`, serial `e3572b180497ec75` |
@@ -274,16 +274,44 @@ three minutes whenever it is worth knowing, and the thresholds follow from `wake
   air the gain also lifts the room's own noise, so the in-air figure is lower than that, and the
   false-wake pass predates the change: `scripts/wake-live.sh room 30` is what re-checks it.
 
-### Phase 6 — Presence, night mode, settings ☐
+### Phase 6 — Presence, night mode, settings ☑
 
-| ID | Task |
-|---|---|
-| P6-1 | Presence: front camera, grayscale fast path every 2 s (+ hardware detection), greeting after absence; paused at night (FR-PRES-*) |
-| P6-2 | Night mode: schedule, brightness, sleepy face, wake word still active (FR-ON-06) |
-| P6-3 | Hidden settings screen (long-press + optional PIN), test buttons (FR-SET-01..03, FR-ON-07) |
-| P6-4 | JSON config export/import, `adb push` + broadcast apply, keys excluded on export option (FR-SET-04..06) |
+| ID | Task | Status |
+|---|---|---|
+| P6-1 | Presence: front camera, grayscale fast path every 2 s, greeting after absence; paused at night (FR-PRES-*) | ☑ |
+| P6-2 | Night mode: schedule, brightness, sleepy face, wake word still active (FR-ON-06) | ☑ |
+| P6-3 | Hidden settings screen (long-press + optional PIN), test buttons (FR-SET-01..03, FR-ON-07) | ☑ |
+| P6-4 | JSON config export/import, `adb push` + apply, keys excluded on export option (FR-SET-04..06) | ☑ |
 
 **Done when:** acceptance criteria 8, 9, 10 pass.
+
+**Result (2026-09-18):**
+
+| Criterion | Result |
+|---|---|
+| 8 — night mode | Forced with `scripts/night.sh on`: face **sleepy**, screen brightness **12/255** where the system setting is 60. Tapping it: brightness back to full, listening → speaking. Back to idle: **sleepy and 12/255 again**, with the wake word still listening throughout (`WAKE_RESUMED reason=idle`) |
+| 9 — greeting on arrival | Room empty for two minutes, threshold set to one: somebody looked at the tablet and `PRESENCE_ARRIVED_AND_MISSED` → `greeting` fired in the same millisecond, the face lighting up. Detection needs a *frontal* face, as SP-05 warned |
+| 10 — settings round trip | `scripts/settings.sh export` → keys **masked** in the copy → city and two settings edited on the Mac → `import` → applied live (`CONFIG_APPLIED`), with the **real keys still on the tablet**. Long press opens the settings screen (also `scripts/settings.sh open`) |
+| Cost of watching | Camera at 320×240, one frame looked at every 2 s: process CPU **4.6–11 %** with the wake word running too, 173–185 MB |
+| Privacy | No frame is written or sent; the diagnostic reports brightness and a confidence number, never an image (FR-PRES-04) |
+| Tests | 131 JVM unit tests (17 new) — the night window across midnight, arrivals and departures, and key masking |
+
+**Findings:**
+- **An export leaked the API keys.** The config parser accepts a key as either `key` or `apiKey`;
+  the export masked only `apiKey`, so the file it wrote — and copied to the Mac, into a folder git
+  did not ignore — contained both real keys in clear. Now both spellings are masked, `config/` is
+  ignored apart from the example, the script verifies what actually arrived before keeping it, and
+  a test asserts the masking. It took one wrong field name to undo "no API keys in the repository".
+- **Restarting a camera races itself.** Stopping presence and starting it again on a fresh thread
+  left the old thread still holding the camera, so the new one got "in use by something else" — and
+  the failure was sticky, because an unavailable camera was never asked again. One thread for the
+  life of the object, and a start that forgives a previous failure.
+- **A greeting has to be earned.** The detector only sees faces looking straight at it, so somebody
+  working at a desk appears and disappears constantly. Presence needs a minute of nothing before it
+  believes the room is empty, and an arrival is only greeted after a configurable absence.
+- **The screen dims through the window, not the system setting**, which means Bello never changes
+  a setting the owner would have to put back: `screenBrightness` on its own window, visible as
+  `mScreenBrightnessOverrideFromWindowManager` and gone the moment the app is not in front.
 
 ### Phase 7 — Hardening and acceptance ☐
 

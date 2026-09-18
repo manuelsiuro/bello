@@ -18,11 +18,16 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.bello.assistant.assistant.Assistant
+import com.bello.assistant.assistant.ConversationPolicy
 import com.bello.assistant.assistant.Router
+import com.bello.assistant.assistant.Turn
 import com.bello.assistant.core.AppConfig
+import com.bello.assistant.core.ConfigIo
 import com.bello.assistant.core.Diagnostics
 import com.bello.assistant.core.FileLog
+import com.bello.assistant.core.NightMode
 import com.bello.assistant.core.Prefs
+import com.bello.assistant.presence.Presence
 import com.bello.assistant.BelloApp
 import com.bello.assistant.llm.LlmGateway
 import com.bello.assistant.service.AssistantService
@@ -45,6 +50,11 @@ class MainActivity : Activity(), FaceView.Listener {
     private lateinit var root: FrameLayout
     private lateinit var gateway: LlmGateway
     private lateinit var router: Router
+    private lateinit var settingsView: SettingsView
+    private lateinit var presence: Presence
+    /** null = follow the clock; true/false = forced, for testing night mode at ten in the morning. */
+    private var nightOverride: Boolean? = null
+    private var night = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,7 +72,9 @@ class MainActivity : Activity(), FaceView.Listener {
         // The hidden Gemini Web page (if enabled) sits behind the face, at index 0.
         gateway.attachWebHost(root)
         router = Router(this, gateway, AppConfig.load(this), routerListener)
-        assistant = Assistant(this, face, router)
+        assistant = Assistant(this, face, router, isNight = { night })
+        assistant.onTurnChanged = { onTurnChanged() }
+        presence = Presence(this, prefs, presenceListener)
         root.addView(face, FrameLayout.LayoutParams(-1, -1))
         root.addView(keyboardButton(), FrameLayout.LayoutParams(dp(64), dp(64), Gravity.BOTTOM or Gravity.END).apply {
             setMargins(0, 0, dp(16), dp(16))
@@ -73,9 +85,14 @@ class MainActivity : Activity(), FaceView.Listener {
         })
         overlay = DebugOverlay(this) { overlayLines() }
         root.addView(overlay, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.START))
+        settingsView = SettingsView(this, prefs, settingsHost)
+        root.addView(settingsView, FrameLayout.LayoutParams(-1, -1))
         setContentView(root)
+        overlay.show(prefs.overlayEnabled)
 
         AssistantService.start(this, "activity")
+        applyNight()
+        presence.start()
         FileLog.i(TAG, "created reason=${intent.getStringExtra(EXTRA_LAUNCH_REASON) ?: "launcher"} uptime=${SystemClock.elapsedRealtime() / 1000}s")
         handleCommands(intent)
     }
@@ -90,6 +107,7 @@ class MainActivity : Activity(), FaceView.Listener {
         FaceVisibility.onShown(SystemClock.elapsedRealtime())
         hideSystemUi()
         refreshCountdown()
+        applyNight()
     }
 
     override fun onPause() {
@@ -104,7 +122,8 @@ class MainActivity : Activity(), FaceView.Listener {
 
     /** As the home screen, Back must not leave the face. */
     override fun onBackPressed() {
-        if (inputBar.visibility == View.VISIBLE) toggleInput(false)
+        if (settingsView.isOpen) settingsView.hide()
+        else if (inputBar.visibility == View.VISIBLE) toggleInput(false)
     }
 
     override fun onFaceReady() {
@@ -116,6 +135,8 @@ class MainActivity : Activity(), FaceView.Listener {
     }
 
     override fun onDestroy() {
+        presence.release()
+        ticker.removeCallbacks(nightWatch)
         ticker.removeCallbacks(countdown)
         assistant.release()
         gateway.attachWebHost(null)
@@ -132,11 +153,15 @@ class MainActivity : Activity(), FaceView.Listener {
         add("turn=${assistant.currentTurn} ${DebugOverlay.memoryLine()}")
         add("last=${gateway.lastSource ?: "—"} ${gateway.lastLatencyMs} ms")
         add(assistant.wakeStatus())
+        add("${presence.status()} night=$night")
         addAll(gateway.statusLines())
     }
 
+    /** The way into the settings, and the way out of a kiosk (FR-SET-01, FR-ON-07). */
     override fun onFaceLongPress() {
-        FileLog.i(TAG, "long press (settings arrive in Phase 6)")
+        FileLog.i(TAG, "settings opened")
+        wake(FULL_BRIGHTNESS)
+        settingsView.open()
     }
 
     /** Timers and alarms talk back to the conversation through here. */
@@ -170,6 +195,125 @@ class MainActivity : Activity(), FaceView.Listener {
         else String.format("%d:%02d", total / 60, total % 60)
     }
 
+
+    // --- Night, presence and settings (FR-ON-06, FR-PRES-*, FR-SET-*) --------------------------
+
+    /** Once a minute is often enough to notice that it has become eleven o'clock. */
+    private val nightWatch = object : Runnable {
+        override fun run() {
+            applyNight()
+            ticker.postDelayed(this, NIGHT_CHECK_MS)
+        }
+    }
+
+    private fun applyNight() {
+        ticker.removeCallbacks(nightWatch)
+        ticker.postDelayed(nightWatch, NIGHT_CHECK_MS)
+        val start = NightMode.parse(prefs.nightStart) ?: return
+        val end = NightMode.parse(prefs.nightEnd) ?: return
+        val now = java.util.Calendar.getInstance()
+        val minuteOfDay = now.get(java.util.Calendar.HOUR_OF_DAY) * 60 + now.get(java.util.Calendar.MINUTE)
+        val wasNight = night
+        night = nightOverride ?: NightMode.isNight(minuteOfDay, start, end)
+        if (night != wasNight) {
+            FileLog.i(TAG, "NIGHT=$night (${prefs.nightStart}–${prefs.nightEnd})")
+            // The camera sleeps with the house; the wake word does not (FR-PRES-03, FR-ON-06).
+            if (night) presence.stop("night") else presence.start()
+        }
+        // Busy means somebody is talking to it, and it should be readable while they do.
+        val busy = assistant.currentTurn != Turn.IDLE
+        wake(if (night && !busy) prefs.nightBrightness else FULL_BRIGHTNESS)
+        if (night != wasNight || !busy) face.setState(ConversationPolicy.face(assistant.currentTurn, night))
+    }
+
+    private fun onTurnChanged() {
+        if (!night) return
+        val busy = assistant.currentTurn != Turn.IDLE
+        // Brighten for the conversation, and let it fade back afterwards (FR-ON-06).
+        wake(if (busy) FULL_BRIGHTNESS else prefs.nightBrightness)
+    }
+
+    private fun wake(brightness: Float) {
+        val params = window.attributes
+        if (params.screenBrightness == brightness) return
+        params.screenBrightness = brightness
+        window.attributes = params
+    }
+
+    private val presenceListener = object : Presence.Listener {
+        override fun onArrived(afterLongAbsence: Boolean) {
+            if (!afterLongAbsence || night) return
+            val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+            assistant.greet(prefs.greetAloud, hour)
+        }
+
+        override fun onLeft() = Unit
+    }
+
+    private val settingsHost = object : SettingsView.Host {
+        override fun onSettingsChanged(what: String) {
+            FileLog.i(TAG, "settings changed: $what")
+            when (what) {
+                "wake" -> assistant.wakeCommand(if (prefs.wakeEnabled) prefs.wakeSensitivity else "off")
+                "voice" -> assistant.setVoiceParams(prefs.ttsPitch, prefs.ttsRate)
+                "night" -> applyNight()
+                "presence" -> restartPresence()
+                "overlay" -> overlay.show(prefs.overlayEnabled)
+                "import" -> reloadEverything()
+            }
+        }
+
+        override fun testProvider() = Thread({
+            val answer = gateway.answer("Dis bonjour en une phrase.")
+            runOnUiThread { assistant.speakNow(answer.text) }
+        }, "test-provider").start()
+
+        override fun testVoice() = assistant.speakNow("Bello ! Ma voix fonctionne.")
+
+        override fun testMicrophone() {
+            settingsView.hide()
+            assistant.onTap()
+        }
+
+        override fun testWakeWord() {
+            settingsView.hide()
+            assistant.wakeCommand("status")
+            assistant.speakNow("Dis « Bello » pour voir.")
+        }
+
+        override fun providerLines(): List<String> = gateway.statusLines()
+
+        override fun memoryLine(): String = router.memoryLine()
+
+        override fun forgetEverything() = router.forgetEverything()
+
+        override fun close() {
+            settingsView.hide()
+            hideSystemUi()
+            applyNight()
+        }
+    }
+
+    /** Settings changed: apply them to a camera that may be running, stopped or unavailable. */
+    private fun restartPresence() {
+        presence.stop("settings")
+        ticker.postDelayed({ presence.start() }, PRESENCE_RESTART_MS)
+    }
+
+    private fun reloadEverything() {
+        val fresh = (application as BelloApp).reloadGateway()
+        gateway = fresh
+        fresh.attachWebHost(root)
+        router = Router(this, fresh, AppConfig.load(this), routerListener)
+        assistant.setResponder(router)
+        assistant.setVoiceParams(prefs.ttsPitch, prefs.ttsRate)
+        assistant.wakeCommand(if (prefs.wakeEnabled) prefs.wakeSensitivity else "off")
+        overlay.show(prefs.overlayEnabled)
+        restartPresence()
+        applyNight()
+        FileLog.i(TAG, "CONFIG_APPLIED")
+    }
+
     private fun handleCommands(intent: Intent) {
         if (intent.getBooleanExtra(EXTRA_SELFCHECK, false)) {
             Thread({ Diagnostics(applicationContext).run() }, "selfcheck").start()
@@ -199,6 +343,34 @@ class MainActivity : Activity(), FaceView.Listener {
                     overlayLines().forEach { FileLog.i(TAG, "LLM_STATUS $it") }
                 }
                 else -> FileLog.w(TAG, "unknown llm command '$command'")
+            }
+        }
+        intent.getStringExtra(EXTRA_PRESENCE)?.let { command ->
+            when (command) {
+                "on" -> { prefs.presenceEnabled = true; presence.start() }
+                "off" -> { prefs.presenceEnabled = false; presence.stop("command") }
+                "check" -> presence.diagnose()
+                else -> FileLog.i(TAG, "PRESENCE ${presence.status()}")
+            }
+        }
+        intent.getStringExtra(EXTRA_NIGHT)?.let { command ->
+            nightOverride = when (command) { "on" -> true; "off" -> false; else -> null }
+            applyNight()
+            FileLog.i(TAG, "NIGHT_MODE command=$command night=$night")
+        }
+        intent.getStringExtra(EXTRA_SETTINGS)?.let { command ->
+            when {
+                command == "open" -> onFaceLongPress()
+                command == "export" -> FileLog.i(TAG, "SETTINGS ${ConfigIo.writeExport(this, false).absolutePath}")
+                command == "export-keys" -> FileLog.i(TAG, "SETTINGS ${ConfigIo.writeExport(this, true).absolutePath}")
+                command.startsWith("import") -> {
+                    val path = command.substringAfter("import:", "").ifBlank { null }
+                    val result = ConfigIo.importFile(this, path)
+                    FileLog.i(TAG, "SETTINGS import ok=${result.ok} ${result.message}")
+                    if (result.ok) reloadEverything()
+                }
+                command == "status" -> FileLog.i(TAG, "SETTINGS ${ConfigIo.settings(prefs)}")
+                else -> FileLog.w(TAG, "unknown settings command '$command'")
             }
         }
         intent.getStringExtra(EXTRA_TEXT)?.let { assistant.onUserText(it) }
@@ -311,5 +483,13 @@ class MainActivity : Activity(), FaceView.Listener {
         const val EXTRA_LLM = "llm"
         const val EXTRA_RING = "ring"
         const val EXTRA_WAKE = "wake"
+        const val EXTRA_SETTINGS = "settings"
+        const val EXTRA_NIGHT = "night"
+        const val EXTRA_PRESENCE = "presence"
+        const val NIGHT_CHECK_MS = 60_000L
+        /** Long enough for the camera to be handed back before it is asked for again. */
+        const val PRESENCE_RESTART_MS = 700L
+        /** BRIGHTNESS_OVERRIDE_NONE: back to whatever the system would do. */
+        const val FULL_BRIGHTNESS = -1f
     }
 }

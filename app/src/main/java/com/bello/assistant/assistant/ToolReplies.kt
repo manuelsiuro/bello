@@ -13,6 +13,13 @@ import java.util.Locale
  */
 object ToolReplies {
 
+    /** Somebody has come back into the room after a while (FR-PRES-02). */
+    fun greeting(hour: Int): String = when (hour) {
+        in 0..4 -> "Oh ! Encore debout ?"
+        in 5..17 -> "Bello ! Bonjour !"
+        else -> "Bello ! Bonsoir !"
+    }
+
     private val TIME = SimpleDateFormat("H'#'mm", Locale.FRANCE)
     private val DAY = SimpleDateFormat("EEEE d MMMM yyyy", Locale.FRANCE)
 

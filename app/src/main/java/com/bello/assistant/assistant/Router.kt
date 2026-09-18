@@ -61,6 +61,20 @@ class Router(
 
     fun schedules(): List<Schedule> = alarms.list()
 
+    /** What the settings screen shows about the memory, and how it is emptied (FR-MEM-04). */
+    fun memoryLine(): String {
+        val remembered = facts.all()
+        if (remembered.isEmpty()) return "Rien en mémoire pour l'instant."
+        return "${remembered.size} chose(s) en mémoire : " +
+            remembered.take(3).joinToString("; ") { it.text } + (if (remembered.size > 3) "…" else "")
+    }
+
+    fun forgetEverything() {
+        val remembered = facts.all()
+        remembered.forEach { facts.delete(it.id) }
+        FileLog.i(TAG, "forgot everything (${remembered.size})")
+    }
+
     private fun handle(intent: Intent, now: Long): Responder.Answer = when (intent) {
         is Intent.Time -> say(ToolReplies.time(now))
         is Intent.Day -> say(ToolReplies.day(now))

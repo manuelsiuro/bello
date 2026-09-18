@@ -22,7 +22,12 @@ class Assistant(
     context: Context,
     private val face: FaceView,
     private var responder: Responder = StubResponder(),
+    /** Night dims the screen and makes an idle Bello look sleepy (FR-ON-06). */
+    private val isNight: () -> Boolean = { false },
 ) : SpeechInput.Listener, SpeechOutput.Listener {
+
+    /** The activity follows the turn to know when to brighten the screen and when to dim it. */
+    var onTurnChanged: ((Turn) -> Unit)? = null
 
     private val main = Handler(Looper.getMainLooper())
     private val prefs = Prefs(context)
@@ -151,6 +156,18 @@ class Assistant(
         tts.stop()
         face.setEmotion(null)
         setTurn(Turn.IDLE)
+    }
+
+    /**
+     * Somebody has walked in after a while away (FR-PRES-02). A greeting never interrupts: if Bello
+     * is in the middle of anything, the arrival passes unremarked.
+     */
+    fun greet(aloud: Boolean, hour: Int) {
+        if (turn != Turn.IDLE || ringer.isRinging) return
+        FileLog.i(TAG, "greeting aloud=$aloud")
+        face.setEmotion(FaceState.HAPPY)
+        if (aloud) say(ToolReplies.greeting(hour), isError = false, emotion = FaceState.HAPPY)
+        else main.postDelayed({ if (turn == Turn.IDLE) face.setEmotion(null) }, GREETING_MS)
     }
 
     /** Speaks a sentence without a question, for testing the voice from the Mac. */
@@ -337,8 +354,9 @@ class Assistant(
         // Back to idle: let the answer's expression linger a moment, then go neutral.
         if (next == Turn.IDLE) main.postDelayed({ if (turn == Turn.IDLE) face.setEmotion(null) }, EMOTION_LINGER_MS)
         turn = next
-        face.setState(ConversationPolicy.face(next))
+        face.setState(ConversationPolicy.face(next, isNight()))
         FileLog.i(TAG, "turn=$next")
+        onTurnChanged?.invoke(next)
     }
 
     private fun cancelTimers() = main.removeCallbacksAndMessages(null)
@@ -349,6 +367,7 @@ class Assistant(
         const val AFTER_SPEECH_PAUSE_MS = 400L
         const val RECOGNIZER_RETRY_MS = 600L
         const val EMOTION_LINGER_MS = 4_000L
+        const val GREETING_MS = 5_000L
         const val WAKE_START_DELAY_MS = 1_500L
         /** The wake word holds the microphone until it hears one; the recogniser needs it free. */
         const val WAKE_LISTEN_DELAY_MS = 150L

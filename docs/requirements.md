@@ -319,7 +319,7 @@ Requirement families against the phases that deliver them (2026-09-18).
 | FR-LLM (providers, fallback), FR-GWEB (Gemini Web), FR-DIAG-02 (overlay) | 3 | ✅ built |
 | FR-MEM (memory), FR-TOOL (clock, timers, alarms, weather, news) | 4 | ✅ built |
 | FR-WAKE (wake word "Bello") | 5 | ✅ built and tuned: 14–16 of 20 detection, 0 false wakes in 21 min of speech, 19 % CPU while a room talks. Accepted without the real-voice figure, which `scripts/wake-live.sh` measures in three minutes if it is ever in doubt |
-| FR-PRES (presence), FR-ON-06 (night mode), FR-SET (settings, config import) | 6 | ☐ |
+| FR-PRES (presence), FR-ON-06 (night mode), FR-SET (settings, config import) | 6 | ✅ built and verified on the tablet |
 | NFR-REL, NFR-PERF, acceptance criteria run | 7 | ☐ |
 
 **Deviations decided while building**
@@ -335,6 +335,8 @@ Requirement families against the phases that deliver them (2026-09-18).
 | FR-TOOL-08 (function calling) | Every tool is matched locally, in French, before any provider is called: it is instant, it works with no key and no network, and it cannot be talked out of setting a timer. LLM function calling would add a network round trip to "quelle heure est-il ?". |
 | FR-MEM-04 (delete in settings) | By voice only for now ("oublie…"); the settings screen arrives in Phase 6. |
 | FR-WAKE-02/03 (settings) | Kept where every other setting lives until Phase 6: on the device, changed with `scripts/wake.sh`, remembered across restarts. |
+| FR-SET-02 (providers in the settings screen) | The screen shows each provider, its model and its state, and the keys masked; keys, models and order are edited in the configuration file, which the same screen exports and imports. Typing a key on a 2014 tablet keyboard is not the way anyone should do it. |
+| FR-SET-03 (test buttons) | All four are there — provider, voice, microphone, wake word — and the last two close the settings first, since they need the face. |
 | FR-CONV-01 (wake word starts listening) | The wake is *provisional*: Bello opens the recogniser but says nothing if no speech follows, so a false wake costs a listening face and nothing else. |
 
 ## 12. Glossary

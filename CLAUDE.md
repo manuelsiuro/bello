@@ -42,6 +42,9 @@ scripts/ask.sh "…"          # alias of text.sh: ask a question and print the a
 scripts/wake.sh on|off|low|normal|high|status   # the "Bello" wake word
 scripts/wake-test.sh make|background|detect|noise|score  # measure with audio played from the Mac
 scripts/wake-live.sh calls 10 | room 30         # measure with a real voice, in the real room
+scripts/night.sh on|off|auto                # night mode now, without waiting for 23:00
+scripts/presence.sh on|off|status|check     # the camera: is it seeing anybody, and what it sees
+scripts/settings.sh export|import|open|status   # the whole configuration as one file
 ```
 
 API keys: copy `config/bello.example.json` to `config/bello.local.json` (git-ignored), add your free
@@ -88,4 +91,12 @@ Home screen: after installing, press Home on the tablet and choose Bello → "Al
   the whole of a conversation. A wake is provisional — if no speech follows, Bello returns to idle
   without saying anything.
 - Voice: speech in/out live in `voice/`; Google's TTS engine is requested by name, otherwise the system may open a store page over the face. Start the recognizer with a short delay after speaking (it reports BUSY otherwise).
-- No API keys in the repository.
+- Night, presence and settings: `core/NightMode` (pure) decides when the screen dims and the face
+  dozes; `presence/Presence` runs the front camera at 320×240 and looks at one frame every two
+  seconds, and `presence/PresenceRule` (pure) turns those glimpses into arrivals and departures. No
+  frame is ever written or sent — only "a face, or not" leaves the class.
+- Settings live in two places on purpose: `core/Prefs` for this tablet, `config.json` for the
+  providers. `core/ConfigIo` joins them into one exportable document and takes it apart again.
+- No API keys in the repository. An export can carry them, so `config/` is git-ignored apart from
+  the example, exports mask keys under **both** spellings the parser accepts (`key`, `apiKey`), and
+  an import keeps the key already on the device when the file's is masked.

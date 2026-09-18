@@ -12,6 +12,7 @@ import com.bello.assistant.core.Prefs
 import org.json.JSONObject
 import org.vosk.Model
 import org.vosk.Recognizer
+import kotlin.math.abs
 import kotlin.math.log10
 import kotlin.math.max
 import kotlin.math.sqrt
@@ -162,7 +163,9 @@ class WakeWord(
             return
         }
         val frame = ShortArray(FRAME_SAMPLES)
+        val amplified = ShortArray(FRAME_SAMPLES)
         val preRoll = ArrayDeque<ShortArray>()
+        var gain = 1.0
         var noiseDb = -60.0
         var active = false
         var aborted = false
@@ -189,8 +192,14 @@ class WakeWord(
                         // sound from before the onset shifts the whole utterance by that much, so
                         // a word spoken at the onset lands at 0.20 s — the middle of the window.
                         onsetSec = framesFed * FRAME_SEC
-                        preRoll.forEach { feed(rec, it) }
-                        feed(rec, frame)
+                        // A voice from the far end of the room arrives quiet, and a quiet voice
+                        // comes back with a low confidence rather than a wrong word. The gain is
+                        // fixed here, from the loudest sample of the opening 300 ms, and held for
+                        // the utterance: measured over the same twenty recordings attenuated to
+                        // imitate distance, it takes 9 of 20 back to 20 of 20 at −18 dB.
+                        gain = gainFor(preRoll, frame)
+                        preRoll.forEach { feed(rec, it, gain, amplified) }
+                        feed(rec, frame, gain, amplified)
                     } else {
                         preRoll.addLast(frame.copyOf())
                         if (preRoll.size > PRE_ROLL_FRAMES) preRoll.removeFirst()
@@ -201,7 +210,7 @@ class WakeWord(
                 activeMs += FRAME_MS
                 silentFrames = if (loud) 0 else silentFrames + 1
                 if (!aborted) {
-                    if (feed(rec, frame)) {
+                    if (feed(rec, frame, gain, amplified)) {
                         judge(rec.result, onsetSec)
                         active = false; preRoll.clear(); continue
                     }
@@ -299,9 +308,26 @@ class WakeWord(
         return read == frame.size
     }
 
-    private fun feed(rec: Recognizer, frame: ShortArray): Boolean {
+    private fun feed(rec: Recognizer, frame: ShortArray, gain: Double, scratch: ShortArray): Boolean {
         framesFed++
-        return rec.acceptWaveForm(frame, frame.size)
+        if (gain == 1.0) return rec.acceptWaveForm(frame, frame.size)
+        for (i in frame.indices) {
+            val scaled = (frame[i] * gain).toInt()
+            scratch[i] = scaled.coerceIn(-Short.MAX_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+        }
+        return rec.acceptWaveForm(scratch, scratch.size)
+    }
+
+    /**
+     * How much to lift the utterance so the recogniser hears it at a comfortable level, from the
+     * only part of it the gate has in hand when it starts: the 200 ms of pre-roll and the first
+     * frame. Capped, so a near-silent room is not amplified into noise.
+     */
+    private fun gainFor(preRoll: Collection<ShortArray>, frame: ShortArray): Double {
+        var peak = 1
+        for (buffered in preRoll) for (sample in buffered) peak = max(peak, abs(sample.toInt()))
+        for (sample in frame) peak = max(peak, abs(sample.toInt()))
+        return (TARGET_PEAK / peak).coerceAtMost(MAX_GAIN)
     }
 
     /**
@@ -338,6 +364,10 @@ class WakeWord(
         const val HANGOVER_FRAMES = 7
         const val ABORT_AFTER_MS = 1500
         const val MAX_UTTERANCE_MS = 6000
+
+        /** Half of full scale: loud enough for the recogniser, with headroom against clipping. */
+        const val TARGET_PEAK = 16384.0
+        const val MAX_GAIN = 8.0
 
         const val WAKE_COOLDOWN_MS = 1500L
         const val RESUME_DELAY_MS = 600L

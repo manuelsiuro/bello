@@ -239,6 +239,7 @@ live, with the television on. See "Inputs needed from the user".
 | Detection, played across the room | **14–16 of 20 (70–80 %)** — three runs of the same twenty utterances at the same settings gave 15, 16 (scored from the candidates) and 14. It sits *on* the 80 % target, not above it: the misses are confidences just under the threshold, 0.55–0.68 |
 | False wakes | **0 in 21.4 min** of continuous French (that day's headlines and random articles, three voices) — the spike measured 4.3 / hour |
 | CPU, non-stop speech | **19 %** (budget 35 %); the spike's own combined figure was 24 % |
+| A voice from further away | The gate now lifts a quiet utterance to a comfortable level before the recogniser sees it, with the gain fixed from the opening 300 ms. On the same twenty recordings attenuated to imitate distance, confidences above the threshold go from **9/20 to 20/20 at −18 dB** and 12/20 to 20/20 at −12 dB. Played deliberately quietly across the room (55 % volume) the whole build gets **11/20** |
 | CPU and memory, quiet room | **7–9 %** and **≈175 MB** with the wake word listening, against 6.6 % and 67 MB without it — the speech model is most of that memory (budget 35 % and 350 MB) |
 | Wake → listening face | microphone released in **128 ms**, Google recogniser ready **169 ms** later |
 | Wake decided after the word | **101–956 ms**, mostly ≈160 ms (NFR-PERF-01 wants ≤ 1 s) |
@@ -264,6 +265,12 @@ live, with the television on. See "Inputs needed from the user".
 - **A wake word that keeps decoding is what a 2014 processor cannot afford.** Not aborting an
   utterance that has not produced the keyword within 1.5 s doubled the cost of a talking room,
   42 % CPU against 19 %.
+- **Distance is a volume problem, and volume is fixable.** A voice from the far end of the room
+  arrives quiet, and a quiet voice comes back with a low confidence rather than a wrong word —
+  which is exactly what the threshold then throws away. Lifting the utterance to a fixed level
+  before decoding recovers nearly all of it on clean recordings (9/20 → 20/20 at −18 dB). In the
+  air the gain also lifts the room's own noise, so the in-air figure is lower than that, and the
+  false-wake pass predates the change: `scripts/wake-live.sh room 30` is what re-checks it.
 
 ### Phase 6 — Presence, night mode, settings ☐
 

@@ -118,6 +118,12 @@ three others. Two of the three numbers changed.
   dropped to 38. `scripts/wake-test.sh` now sets and restores the level itself.
 - **A wake word must stop decoding a room that is only talking to itself.** Continuing past 1.5 s
   when the keyword has not appeared cost 42 % CPU instead of 19 %.
+- **Distance is a volume problem.** A quiet voice does not come back as a wrong word, it comes back
+  as a low confidence — which the threshold then discards. The production gate therefore lifts each
+  utterance to a fixed level before decoding, with the gain taken from its opening 300 ms (all the
+  gate has in hand when it starts). On the same recordings attenuated to imitate distance, this
+  takes confidences above threshold from 9/20 to **20/20 at −18 dB**; in the air, where the gain
+  lifts the room's noise too, it is worth less than that.
 - **The same twenty files, the same settings, three runs: 15, 16, 14.** Detection over the air is
   not a fixed number but a distribution, and this one straddles the 80 % target. The misses are
   confidences just below the threshold (0.55–0.68), so the room, the distance and the voice decide

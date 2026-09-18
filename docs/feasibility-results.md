@@ -60,6 +60,15 @@ Findings:
 
 Script: `spikes/app/src/main/assets/gemini/gemini.js`.
 
+**What Phase 3 added (2026-09-18).** The spike measured the page while it was being used; in
+production the page also has to *sit there*. Idle, loaded and doing nothing, it costs **≈48 % CPU
+and ≈190 MB** on this tablet — four times the whole idle budget. The provider therefore loads the
+page around a question and releases it 90 s later (7.2 % and 93 MB once released), at the cost of
+about 6 s on the first question. Two more production findings: a wrong URL loads a perfectly good
+404 page, so the health check has to check that the page *accepts a question*, not that it loaded;
+and the real page needs a few seconds after loading before its editor exists.
+Production script: `app/src/main/assets/gemini/gemini.js` (can be replaced on the device).
+
 ## SP-03 — Vosk offline wake word "bello"
 
 **Verdict: Partial pass.** Offline wake word runs on the device with detection and CPU within targets, but the false-wake target is not yet met under loud, continuous background speech.

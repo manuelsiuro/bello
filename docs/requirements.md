@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| Status | Draft v1.0 — approved decisions from planning session |
-| Date | 2026-09-17 |
+| Status | v1.0 — in build; see [§11 Implementation status](#11-implementation-status) |
+| Date | 2026-09-17 (status updated 2026-09-18) |
 | Target device | Samsung Galaxy Tab 4 10.1 SM-T530 — see [device-galaxy-tab4.md](device-galaxy-tab4.md) |
-| Next step | Implementation plan |
+| Progress | [implementation-plan.md](implementation-plan.md) — Phases 0–3 done, Phase 4 next |
 
 ## 1. Purpose
 
@@ -308,7 +308,31 @@ Priority: **M** = must (v1), **S** = should (v1 if feasible), **C** = could (lat
 11. With Wi-Fi off: face shows offline state, clock/timers/alarms keep working; with Wi-Fi back, conversation resumes without restart.
 12. 7-day unattended run with no crash requiring manual action; NFR-PERF targets met.
 
-## 11. Glossary
+## 11. Implementation status
+
+Requirement families against the phases that deliver them (2026-09-18).
+
+| Family | Phase | State |
+|---|---|---|
+| FR-ON (always on, boot, kiosk), FR-FACE (face, states) | 1 | ✅ built and verified on the tablet |
+| FR-CONV (conversation), FR-STT, FR-TTS | 2 | ✅ built; wake word itself is FR-WAKE, Phase 5 |
+| FR-LLM (providers, fallback), FR-GWEB (Gemini Web), FR-DIAG-02 (overlay) | 3 | ✅ built |
+| FR-MEM (memory), FR-TOOL (clock, timers, alarms, weather, news) | 4 | ☐ next |
+| FR-WAKE (wake word "Bello") | 5 | ☐ spike passed with a caveat (4.3 false wakes/hour) |
+| FR-PRES (presence), FR-ON-06 (night mode), FR-SET (settings, config import) | 6 | ☐ |
+| NFR-REL, NFR-PERF, acceptance criteria run | 7 | ☐ |
+
+**Deviations decided while building**
+
+| Requirement | What was built, and why |
+|---|---|
+| FR-LLM-08 (streaming, priority C) | Not built. Answers are spoken when complete; at 0.6–1.9 s per answer, streaming would save little and complicates barge-in. |
+| FR-GWEB-01 (hidden WebView) | The page is loaded around a question and released 90 s later, instead of staying open: idle, a loaded Gemini page costs ≈48 % CPU and ≈190 MB on this tablet. First question after a pause pays ≈6 s. |
+| FR-GWEB-06 (hourly health check) | Checked when the face starts and after a release; a page that cannot be driven is skipped for 30 minutes. An hourly check would mean loading the page hourly, at the CPU cost above, for no benefit while other providers work. |
+| FR-LLM-02 (presets) | Preset model names go stale — two were already retired 404s. The config file overrides the model, and `scripts/models.sh` lists what a key accepts. |
+| FR-CONV-08 (≤ 3 sentences) | Enforced by the persona prompt, not by truncation, so answers are never cut mid-sentence. |
+
+## 12. Glossary
 
 | Term | Meaning |
 |---|---|

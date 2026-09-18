@@ -238,7 +238,7 @@ Phase 5 can start after Phase 2 (needs mic arbitration with STT/TTS). Phase 6 ca
 
 | When | Input |
 |---|---|
-| Before Phase 3 | Free API keys (Gemini AI Studio, Groq; optionally Mistral, Cerebras, OpenRouter) |
+| ~~Before Phase 3~~ | ✅ Provided 2026-09-18: Gemini (AI Studio) and Groq keys, in `config/bello.local.json` |
 | Phase 1 (optional) | Face design direction, or keep the SP-06 placeholder |
 | Phase 5 | A few evenings of TV/radio near the tablet and real "Bello" utterances at several distances |
 | Phase 7 | Smart plug or charging schedule decision |

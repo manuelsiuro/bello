@@ -239,6 +239,7 @@ live, with the television on. See "Inputs needed from the user".
 | Detection, played across the room | **14–16 of 20 (70–80 %)** — three runs of the same twenty utterances at the same settings gave 15, 16 (scored from the candidates) and 14. It sits *on* the 80 % target, not above it: the misses are confidences just under the threshold, 0.55–0.68 |
 | False wakes | **0 in 21.4 min** of continuous French (that day's headlines and random articles, three voices) — the spike measured 4.3 / hour |
 | CPU, non-stop speech | **19 %** (budget 35 %); the spike's own combined figure was 24 % |
+| Window, after the gain | Lifting a quiet utterance makes the onset trip sooner, so the lower bound moved to 0.05 s as well — a real call was lost at 0.07 s. Of eighteen false candidates in 21.4 min, none reached the threshold anywhere inside [0.05, 0.60] |
 | A voice from further away | The gate now lifts a quiet utterance to a comfortable level before the recogniser sees it, with the gain fixed from the opening 300 ms. On the same twenty recordings attenuated to imitate distance, confidences above the threshold go from **9/20 to 20/20 at −18 dB** and 12/20 to 20/20 at −12 dB. Played deliberately quietly across the room (55 % volume) the whole build gets **11/20** |
 | CPU and memory, quiet room | **7–9 %** and **≈175 MB** with the wake word listening, against 6.6 % and 67 MB without it — the speech model is most of that memory (budget 35 % and 350 MB) |
 | Wake → listening face | microphone released in **128 ms**, Google recogniser ready **169 ms** later |

@@ -13,16 +13,16 @@ enum class WakeSensitivity { LOW, NORMAL, HIGH;
 }
 
 /**
- * The rule that turns a Vosk result into a wake, from SP-03.
+ * The rule that turns a Vosk result into a wake, from SP-03 and re-measured in Phase 5.
  *
  * Hearing "bello" is not enough: the model hears it in "bel", "belote" and in half of what a
- * television says. Three things separate the real ones, measured over 26 real utterances and
- * 28 minutes of loud French speech:
+ * television says. Three things separate the real ones:
  *
- * - **Confidence.** Real ones came back at 0.99–1.0.
+ * - **Confidence.** Across a room a real one comes back at 0.79–1.00; the loudest false one that
+ *   landed inside the window reached 0.62.
  * - **When it starts, counted from the moment the room got loud.** Someone calling Bello says it
- *   first: every real one started 0.16–0.28 s after the onset. Every false one started before the
- *   onset or well after it.
+ *   first, so a real one starts within about half a second of the onset. False ones sit deep
+ *   inside a sentence, past 1.5 s, or were already under way before the room got loud.
  * - **Silence after it.** A person says "Bello", then pauses before asking. Speech that merely
  *   contains the sound runs straight on.
  */
@@ -41,13 +41,16 @@ data class WakeRule(
          *   "Bello" comes back at 0.79–1.00, not the 0.99–1.00 of the spike's close trials, so
          *   0.99 threw away three quarters of them. The loudest false one inside the window
          *   reached 0.62, which is what leaves room for 0.70.
-         * - **The window needed its far edge pushed out** from 0.35 s to 0.60 s. The word does not
-         *   always start where the room got loud: a breath or a chair can open the utterance. No
-         *   false candidate fell in the added stretch — they sit past 1.5 s, deep in a sentence.
+         * - **The window needed widening at both ends**, to [0.05, 0.60] s. The word does not always
+         *   start where the room got loud — a breath or a chair can open the utterance, and once
+         *   the gate lifts a quiet voice the onset trips sooner. Of eighteen false candidates in
+         *   twenty-one minutes of speech, not one reached 0.70 anywhere inside that window; they
+         *   sit past 1.5 s, deep in a sentence. The lower bound still excludes a word that was
+         *   already under way before the room got loud, which is where SP-03's false wakes were.
          */
         fun of(sensitivity: WakeSensitivity): WakeRule = when (sensitivity) {
             WakeSensitivity.LOW -> WakeRule(0.85, 0.12, 0.40, 0.60)
-            WakeSensitivity.NORMAL -> WakeRule(0.70, 0.10, 0.60, 0.50)
+            WakeSensitivity.NORMAL -> WakeRule(0.70, 0.05, 0.60, 0.50)
             WakeSensitivity.HIGH -> WakeRule(0.55, 0.05, 0.80, 0.35)
         }
     }

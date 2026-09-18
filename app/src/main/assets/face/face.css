@@ -12,6 +12,7 @@
   --dark: #34393e;
   --mouth: #5a2a1a;
   --denim: #2f6db5;
+  --denim-dark: #275f9e;
   --text: #ffffff;
   --muted: rgba(255, 255, 255, 0.62);
 }
@@ -39,11 +40,15 @@ html, body {
 
 #face { position: relative; width: 46vh; height: 74vh; }
 
-/* Head and body */
+/*
+ * Head and body are one shape — a Minion has no neck. Everything else (goggle, mouth, the
+ * overalls) is drawn inside it and clipped by `overflow: hidden`, so nothing can drift away
+ * from the silhouette: the denim ends exactly where the body ends, curve included.
+ */
 .head {
   position: absolute;
-  inset: 0 0 12vh 0;
-  border-radius: 23vh 23vh 19vh 19vh;
+  inset: 0;
+  border-radius: 23vh 23vh 7vh 7vh;
   background: linear-gradient(180deg, var(--skin-top), var(--skin));
   overflow: hidden;
 }
@@ -163,30 +168,40 @@ body.confused #mouth {
   background-size: 100% 100%;
 }
 
-/* Overalls */
+/*
+ * Overalls: waist at 59vh, bib from 48.5vh — just under the mouth, which ends at 48vh.
+ * Nothing here needs a radius: the body clips all of it.
+ */
 .overalls {
   position: absolute;
-  left: 1vh;
-  right: 1vh;
+  left: 0;
+  right: 0;
+  top: 59vh;
   bottom: 0;
-  height: 13vh;
+  background: linear-gradient(180deg, var(--denim), var(--denim-dark));
+}
+.bib {
+  position: absolute;
+  top: 48.5vh;
+  bottom: 15vh;
+  left: 50%;
+  width: 20vh;
+  margin-left: -10vh;
+  border-radius: 1.6vh 1.6vh 0 0;
   background: var(--denim);
-  border-radius: 0 0 3vh 3vh;
 }
 .pocket {
   position: absolute;
-  top: 1.6vh;
+  top: 3.8vh;
   left: 50%;
-  width: 13vh;
-  height: 7vh;
-  margin-left: -6.5vh;
-  border-radius: 1.2vh;
-  background: #2a60a0;
+  width: 14vh;
+  height: 6.4vh;
+  margin-left: -7vh;
+  border-radius: 0.8vh;
+  box-sizing: border-box;
+  background: #2a63a4;
+  border: 0.35vh solid rgba(255, 255, 255, 0.24);
 }
-.button { position: absolute; top: 0.4vh; width: 2vh; height: 2vh; border-radius: 50%; background: #1d1d1d; }
-.button.left { left: 1.6vh; }
-.button.right { right: 1.6vh; }
-
 /* State decorations */
 #dots, #zzz, #question, #bang {
   position: absolute;

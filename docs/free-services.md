@@ -103,11 +103,13 @@ Dropped for cause: everything needing a card (Brave, Google Cloud TTS), paid des
 Groq TTS), dead or dying (Wikinews, LibreTranslate mirrors, Edge TTS, SCARE cinema data, the Deezer
 app programme), or non-existent (pharmacie de garde, lottery results, cinema showtimes).
 
-Two things to do first, whichever features are chosen: give `net/HttpClients` a **speaking
-`User-Agent`** (`Bello/1.0 (+contact)`) — the app sends OkHttp's default today, and Wikimedia,
-Open Food Facts, Radio Browser and Overpass all require a real one and may block without it — and
-add the **attribution lines** to the settings screen (Wikipedia CC BY-SA, Open Food Facts ODbL,
-Open-Meteo CC BY 4.0, "Source : service-public.gouv.fr", and TMDB's sentence if it is used).
+Two things had to come first, whichever features were chosen, and **both were done in Phase 11**:
+a speaking **`User-Agent`** (`Bello/1.0 (+repository)`), now sent by `tools/ToolHttp` on every tool
+request — Wikimedia's policy blocks the default agent of an HTTP library, and Open Food Facts,
+Radio Browser and Overpass ask for the same; the LLM providers keep OkHttp's own agent, which none
+of them mind — and the **attribution lines**, now a "Sources" section in the settings screen
+(Open-Meteo CC BY 4.0, Wikipedia CC BY-SA, the public services under Licence Ouverte 2.0, JokeAPI).
+Open Food Facts' ODbL line and TMDB's sentence go in when those two are built.
 
 ## 5. Findings by area
 

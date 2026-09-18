@@ -3,6 +3,7 @@ package com.bello.assistant.core
 import android.content.Context
 import android.os.Build
 import android.os.SystemClock
+import com.bello.assistant.llm.LlmFactory
 import com.bello.assistant.net.HttpClients
 import com.bello.assistant.voice.VoskRuntime
 import okhttp3.Request
@@ -20,6 +21,7 @@ class Diagnostics(private val context: Context) {
         checks += https("https Open-Meteo", "https://api.open-meteo.com/v1/forecast?latitude=43.66&longitude=6.92&current=temperature_2m")
         checks += https("https Let's Encrypt root", "https://valid-isrgrootx1.letsencrypt.org/")
         checks += https("https Gemini API", "https://generativelanguage.googleapis.com/v1beta/models", okCodes = 200..499)
+        checks += llmConfig()
         checks += step("vosk native") { VoskRuntime.load(); "loaded" }
         val present = VoskRuntime.isModelPresent(context)
         checks += Check("vosk model files", present, VoskRuntime.modelDir(context).absolutePath)
@@ -33,6 +35,17 @@ class Diagnostics(private val context: Context) {
         checks.forEach { FileLog.i(TAG, "CHECK ${if (it.ok) "OK  " else "FAIL"} ${it.name}: ${it.detail}") }
         FileLog.i(TAG, "SELFCHECK_DONE ok=${checks.count { it.ok }}/${checks.size}")
         return checks
+    }
+
+    /** Are there answer providers at all, and is the config file understood? (FR-LLM-01, FR-DIAG-01) */
+    private fun llmConfig(): Check {
+        val config = LlmFactory.loadConfig(context)
+        val enabled = config.providers.filter { it.enabled }
+        val detail = when {
+            config.providers.isEmpty() -> "no provider in ${LlmFactory.configFile(context).name}"
+            else -> enabled.joinToString { it.label }.ifEmpty { "all providers disabled" }
+        } + config.problems.joinToString("") { " · $it" }
+        return Check("llm providers", enabled.isNotEmpty(), detail)
     }
 
     private fun https(name: String, url: String, okCodes: IntRange = 200..299) = step(name) {

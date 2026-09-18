@@ -21,6 +21,8 @@ import com.bello.assistant.assistant.Assistant
 import com.bello.assistant.core.Diagnostics
 import com.bello.assistant.core.FileLog
 import com.bello.assistant.core.Prefs
+import com.bello.assistant.BelloApp
+import com.bello.assistant.llm.LlmGateway
 import com.bello.assistant.service.AssistantService
 import com.bello.assistant.service.FaceVisibility
 
@@ -28,7 +30,7 @@ import com.bello.assistant.service.FaceVisibility
  * Full-screen, always-on face (FR-ON-01/02/04, FR-FACE-*), with a text input bar (FR-CONV-03).
  *
  * adb extras (see scripts/): `selfcheck` (bool), `state` (face state), `text` (typed question),
- * `kiosk` ("on"/"off").
+ * `kiosk` ("on"/"off"), `overlay` ("on"/"off"), `llm` ("status"/"reload").
  */
 class MainActivity : Activity(), FaceView.Listener {
     private lateinit var face: FaceView
@@ -36,6 +38,9 @@ class MainActivity : Activity(), FaceView.Listener {
     private lateinit var inputBar: LinearLayout
     private lateinit var input: EditText
     private lateinit var prefs: Prefs
+    private lateinit var overlay: DebugOverlay
+    private lateinit var root: FrameLayout
+    private lateinit var gateway: LlmGateway
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,8 +53,11 @@ class MainActivity : Activity(), FaceView.Listener {
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN)
 
         face = FaceView(this, this)
-        assistant = Assistant(this, face)
-        val root = FrameLayout(this)
+        root = FrameLayout(this)
+        gateway = (application as BelloApp).gateway()
+        // The hidden Gemini Web page (if enabled) sits behind the face, at index 0.
+        gateway.attachWebHost(root)
+        assistant = Assistant(this, face, gateway)
         root.addView(face, FrameLayout.LayoutParams(-1, -1))
         root.addView(keyboardButton(), FrameLayout.LayoutParams(dp(64), dp(64), Gravity.BOTTOM or Gravity.END).apply {
             setMargins(0, 0, dp(16), dp(16))
@@ -58,6 +66,8 @@ class MainActivity : Activity(), FaceView.Listener {
         root.addView(inputBar, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM).apply {
             setMargins(dp(96), 0, dp(96), dp(16))
         })
+        overlay = DebugOverlay(this) { overlayLines() }
+        root.addView(overlay, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.START))
         setContentView(root)
 
         AssistantService.start(this, "activity")
@@ -101,7 +111,20 @@ class MainActivity : Activity(), FaceView.Listener {
 
     override fun onDestroy() {
         assistant.release()
+        gateway.attachWebHost(null)
         super.onDestroy()
+    }
+
+    /** FR-GWEB-10: let the hidden Gemini page go when the system is short on memory. */
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        gateway.onTrimMemory(level)
+    }
+
+    private fun overlayLines(): List<String> = buildList {
+        add("turn=${assistant.currentTurn} ${DebugOverlay.memoryLine()}")
+        add("last=${gateway.lastSource ?: "—"} ${gateway.lastLatencyMs} ms")
+        addAll(gateway.statusLines())
     }
 
     override fun onFaceLongPress() {
@@ -118,6 +141,21 @@ class MainActivity : Activity(), FaceView.Listener {
         }
         intent.getStringExtra(EXTRA_STATE)?.let { s ->
             FaceState.fromJs(s)?.let { face.setState(it) } ?: FileLog.w(TAG, "unknown state '$s'")
+        }
+        intent.getStringExtra(EXTRA_OVERLAY)?.let { overlay.show(it == "on") }
+        intent.getStringExtra(EXTRA_LLM)?.let { command ->
+            when (command) {
+                "status" -> overlayLines().forEach { FileLog.i(TAG, "LLM_STATUS $it") }
+                "reload" -> {
+                    val fresh = (application as BelloApp).reloadGateway()
+                    gateway = fresh
+                    fresh.attachWebHost(root)
+                    assistant.setResponder(fresh)
+                    FileLog.i(TAG, "LLM_RELOADED")
+                    overlayLines().forEach { FileLog.i(TAG, "LLM_STATUS $it") }
+                }
+                else -> FileLog.w(TAG, "unknown llm command '$command'")
+            }
         }
         intent.getStringExtra(EXTRA_TEXT)?.let { assistant.onUserText(it) }
         intent.getStringExtra(EXTRA_SPEAK)?.let { assistant.speakNow(it) }
@@ -225,5 +263,7 @@ class MainActivity : Activity(), FaceView.Listener {
         const val EXTRA_SPEAK = "speak"
         const val EXTRA_TAP = "tap"
         const val EXTRA_VOICE = "voice"
+        const val EXTRA_OVERLAY = "overlay"
+        const val EXTRA_LLM = "llm"
     }
 }

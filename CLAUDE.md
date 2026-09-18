@@ -33,7 +33,15 @@ scripts/crash-test.sh   # debug builds: crash on purpose and check the app resta
 scripts/speak.sh "…"    # make Bello say a sentence (tests the voice)
 scripts/voice.sh 1.6 1.05   # set TTS pitch and rate
 scripts/ask-voice.sh "…"    # full voice round trip: taps the face, plays the phrase from the Mac
+scripts/push-config.sh      # push config/bello.local.json (API keys) to the tablet and reload it
+scripts/llm.sh status       # provider health: ok/fail counts, daily use, cooldowns
+scripts/overlay.sh on|off   # debug overlay on the face (state, provider, latency, memory)
+scripts/fallback-test.sh    # forces a 429 from a fake provider and checks the fallback + cooldown
 ```
+
+API keys: copy `config/bello.example.json` to `config/bello.local.json` (git-ignored), add your free
+keys, then `scripts/push-config.sh`. The file lands in the app's external files dir as `config.json`
+and never enters the repository.
 
 Inspect the face page from the Mac (debug builds):
 
@@ -53,5 +61,11 @@ Home screen: after installing, press Home on the tablet and choose Bello → "Al
 - Log with `core/FileLog` — logcat is flooded by the Samsung camera HAL; the app log file is the source of truth.
 - Face (`assets/face/`): HTML/CSS, never SVG for animated parts — animating SVG repaints the whole face every frame (13 % CPU idle vs 6 % now). No infinite animation in idle/sleepy; idle life comes from sparse JS timers. Chromium 95 features only.
 - Crashes are handled by the app (log, schedule restart, kill own process) so Android never shows its crash dialog on this always-on device.
+- LLM: every provider goes through `llm/LlmGateway` (ordered providers, fallback, cooldowns). Free
+  tiers speak the OpenAI dialect, Gemini included. Answers may start with an emotion tag (`[happy]`)
+  that `llm/Persona` turns into a face expression.
+- Gemini Web (`llm/GeminiWebProvider`, off by default) is key-free but expensive: the loaded page
+  costs ~48 % CPU and ~190 MB, so it is loaded around a question and released 90 s later. Its
+  selectors live in `assets/gemini/gemini.js`, replaceable by pushing a file to the device.
 - Voice: speech in/out live in `voice/`; Google's TTS engine is requested by name, otherwise the system may open a store page over the face. Start the recognizer with a short delay after speaking (it reports BUSY otherwise).
 - No API keys in the repository.

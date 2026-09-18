@@ -20,6 +20,7 @@
   var clockEl = document.getElementById('clock');
 
   var state = 'idle';
+  var emotion = '';
   var subtitleTimer = null;
 
   function native(name, arg) {
@@ -30,11 +31,22 @@
     } catch (e) { /* page opened outside the app */ }
   }
 
+  function applyClasses() {
+    body.className = state + (emotion ? ' emo-' + emotion : '');
+  }
+
   function setState(next) {
     if (STATES.indexOf(next) < 0) return;
     state = next;
-    body.className = next;
+    applyClasses();
     if (next !== 'idle') pupil.style.transform = '';
+  }
+
+  // The emotion the answer was tagged with: eyes and badges only, so the speaking mouth keeps
+  // moving. Static transforms, no animation — costs nothing when idle.
+  function setEmotion(next) {
+    emotion = STATES.indexOf(next) < 0 ? '' : next;
+    applyClasses();
   }
 
   // --- Idle life: event-driven, no continuous animation loops -------------------------------
@@ -99,10 +111,11 @@
 
   window.bello = {
     setState: setState,
+    setEmotion: setEmotion,
     showUser: showUser,
     showAnswer: showAnswer,
     clearSubtitles: clearSubtitles,
-    getState: function () { return state; }
+    getState: function () { return state + (emotion ? '+' + emotion : ''); }
   };
 
   tickClock();

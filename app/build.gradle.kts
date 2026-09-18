@@ -46,4 +46,8 @@ dependencies {
     implementation("net.java.dev.jna:jna:5.18.1@aar")
 
     testImplementation("junit:junit:4.13.2")
+    // Real org.json on the JVM test classpath (android.jar's is a stub) so config and provider
+    // payload parsing can be unit tested.
+    testImplementation("org.json:json:20240303")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }

@@ -40,7 +40,9 @@ object HttpClients {
         FileLog.i(TAG, "HTTPS client built with ${certs.size} bundled CA roots")
         return OkHttpClient.Builder()
             .sslSocketFactory(sslContext.socketFactory, trustManager)
-            .connectionSpecs(listOf(ConnectionSpec.MODERN_TLS))
+            // CLEARTEXT is only for a local test endpoint reached through `adb reverse`;
+            // every real provider is HTTPS.
+            .connectionSpecs(listOf(ConnectionSpec.MODERN_TLS, ConnectionSpec.CLEARTEXT))
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(20, TimeUnit.SECONDS)
             .callTimeout(30, TimeUnit.SECONDS)

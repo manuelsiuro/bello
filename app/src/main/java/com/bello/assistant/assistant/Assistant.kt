@@ -30,6 +30,8 @@ class Assistant(
     private var currentUtterance: String? = null
     private var lastAnswerWasError = false
     private var retriedBusy = false
+    /** Bumped whenever a question is dropped, so a late answer from the network is ignored. */
+    private var askSeq = 0
 
     private val backToIdle = Runnable { setTurn(Turn.IDLE) }
 
@@ -52,11 +54,17 @@ class Assistant(
     fun onUserText(text: String) {
         val clean = text.trim()
         if (clean.isEmpty()) return
+        askSeq++
         cancelTimers()
         stt.cancel()
         face.showUser(clean)
         face.showAnswer("")
         think(clean)
+    }
+
+    /** Swaps the answer source, e.g. after the config file is reloaded. */
+    fun setResponder(next: Responder) {
+        responder = next
     }
 
     fun setVoiceParams(pitch: Float, rate: Float) {
@@ -73,6 +81,7 @@ class Assistant(
     }
 
     fun cancel() {
+        askSeq++
         cancelTimers()
         stt.cancel()
         tts.stop()
@@ -93,7 +102,8 @@ class Assistant(
         cancelTimers()
         tts.stop()
         setTurn(next)
-        face.showAnswer("")
+        // A follow-up keeps the answer on screen; a new question starts from a clean slate.
+        if (next != Turn.FOLLOW_UP) face.showAnswer("")
         // The recognizer reports BUSY if it is started in the same breath as the previous session
         // (or right after speaking), so leave it a moment.
         if (delayMs > 0) main.postDelayed({ if (turn == next) stt.start() }, delayMs)
@@ -146,16 +156,30 @@ class Assistant(
         setTurn(Turn.THINKING)
         val forIntent = SpeechText.forIntent(question)
         FileLog.i(TAG, "question chars=${question.length} normalised=\"$forIntent\"")
+        val asked = ++askSeq
+        val startedAt = android.os.SystemClock.elapsedRealtime()
         Thread({
             val answer = runCatching { responder.answer(question) }
-                .getOrElse { Responder.Answer("Je n'ai pas réussi à répondre.", isError = true) }
-            main.post { say(answer.text, answer.isError) }
+                .getOrElse {
+                    FileLog.w(TAG, "responder threw", it)
+                    Responder.Answer("Je n'ai pas réussi à répondre.", isError = true, emotion = FaceState.SAD)
+                }
+            val ms = android.os.SystemClock.elapsedRealtime() - startedAt
+            main.post {
+                if (asked != askSeq) {
+                    FileLog.i(TAG, "answer dropped (question cancelled) ms=$ms")
+                    return@post
+                }
+                FileLog.i(TAG, "answer from=${answer.source ?: "none"} ms=$ms chars=${answer.text.length}")
+                say(answer.text, answer.isError, answer.emotion)
+            }
         }, "responder").start()
     }
 
-    private fun say(text: String, isError: Boolean) {
+    private fun say(text: String, isError: Boolean, emotion: FaceState? = null) {
         lastAnswerWasError = isError
         val spoken = SpeechText.forSpeech(text)
+        face.setEmotion(emotion)
         face.showAnswer(text)
         val id = tts.speak(spoken)
         if (id == null) {
@@ -207,6 +231,9 @@ class Assistant(
 
     private fun setTurn(next: Turn) {
         if (turn == next) return
+        if (next == Turn.LISTENING || next == Turn.THINKING) face.setEmotion(null)
+        // Back to idle: let the answer's expression linger a moment, then go neutral.
+        if (next == Turn.IDLE) main.postDelayed({ if (turn == Turn.IDLE) face.setEmotion(null) }, EMOTION_LINGER_MS)
         turn = next
         face.setState(ConversationPolicy.face(next))
         FileLog.i(TAG, "turn=$next")
@@ -219,5 +246,6 @@ class Assistant(
         const val TEXT_ONLY_PAUSE_MS = 3_000L
         const val AFTER_SPEECH_PAUSE_MS = 400L
         const val RECOGNIZER_RETRY_MS = 600L
+        const val EMOTION_LINGER_MS = 4_000L
     }
 }

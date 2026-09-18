@@ -1,0 +1,19 @@
+{
+  "_comment": "Copy to bello.local.json, add your free keys, then: scripts/push-config.sh",
+  "_keys": {
+    "gemini": "https://aistudio.google.com/apikey",
+    "groq": "https://console.groq.com/keys",
+    "mistral": "https://console.mistral.ai/api-keys",
+    "cerebras": "https://cloud.cerebras.ai",
+    "openrouter": "https://openrouter.ai/keys"
+  },
+  "timeoutMs": 20000,
+  "totalBudgetMs": 45000,
+  "cooldownMs": 60000,
+  "dailyLimit": 0,
+  "providers": [
+    { "preset": "gemini", "key": "PUT_YOUR_AI_STUDIO_KEY_HERE", "model": "gemini-2.0-flash" },
+    { "preset": "groq", "key": "PUT_YOUR_GROQ_KEY_HERE" },
+    { "preset": "geminiweb", "enabled": false }
+  ]
+}

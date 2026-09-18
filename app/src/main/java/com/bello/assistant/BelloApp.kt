@@ -10,11 +10,30 @@ import android.content.Context
 import android.content.Intent
 import android.os.Process
 import android.os.SystemClock
+import com.bello.assistant.llm.LlmFactory
+import com.bello.assistant.llm.LlmGateway
 import com.bello.assistant.net.HttpClients
 import com.bello.assistant.ui.MainActivity
 import kotlin.system.exitProcess
 
 class BelloApp : Application() {
+
+    /**
+     * The answer source lives with the process, not with the activity: the face can be recreated
+     * (it is the home screen) and provider counters, cooldowns and the hidden web page must survive.
+     */
+    @Volatile private var gatewayOrNull: LlmGateway? = null
+
+    @Synchronized
+    fun gateway(): LlmGateway = gatewayOrNull ?: LlmFactory.build(this).also { gatewayOrNull = it }
+
+    /** Rebuilds from the config file after `scripts/push-config.sh`. */
+    @Synchronized
+    fun reloadGateway(): LlmGateway {
+        gatewayOrNull?.close()
+        return LlmFactory.build(this).also { gatewayOrNull = it }
+    }
+
     override fun onCreate() {
         super.onCreate()
         FileLog.init(this)

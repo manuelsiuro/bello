@@ -40,6 +40,9 @@ class FaceView(context: Context, private val listener: Listener) : WebView(conte
 
     fun setState(state: FaceState) = run(FaceScript.call("setState", state.js))
 
+    /** Expression asked for by the model, shown on top of the current state (FR-FACE-04). */
+    fun setEmotion(emotion: FaceState?) = run(FaceScript.call("setEmotion", emotion?.js ?: ""))
+
     fun showUser(text: String) = run(FaceScript.call("showUser", text))
 
     fun showAnswer(text: String) = run(FaceScript.call("showAnswer", text))

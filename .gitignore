@@ -21,3 +21,6 @@ __pycache__/
 # Local helper output
 .cache/
 logs/
+
+# API keys stay on the device, never in git
+config/*.local.json

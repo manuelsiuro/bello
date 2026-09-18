@@ -226,6 +226,14 @@ body.alert #face { animation: shake .5s ease-in-out infinite; }
 body.sleepy #lid { transform: scaleY(.72); transition: transform 1s; }
 body.sleepy #stage { opacity: .38; }
 
+/* Emotion tagged by the model (FR-FACE-04): shown alongside any state, eyes and badges only. */
+body.emo-happy #lidLow { transform: scaleY(.42); }
+body.emo-sad #pupil { transform: translateY(2.4vh); }
+body.emo-sad #lid { transform: scaleY(.34); transition: transform .3s; }
+body.emo-confused #pupil { transform: translate(-2.4vh, -1.2vh); }
+body.emo-confused #question { opacity: 1; }
+body.emo-alert #bang { opacity: 1; }
+
 @keyframes glow { 0%, 100% { opacity: .15; } 50% { opacity: .9; } }
 @keyframes pulse { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
 @keyframes talk { from { transform: scaleY(.25); } to { transform: scaleY(1.15); } }

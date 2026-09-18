@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Phases 0–2 done · Phase 3 next |
+| Status | Phases 0–3 done · Phase 4 next |
 | Date | 2026-09-17 |
 | Inputs | [requirements.md](requirements.md) · [feasibility-results.md](feasibility-results.md) · [device-galaxy-tab4.md](device-galaxy-tab4.md) |
 | Target | Galaxy Tab 4 SM-T530, Android 5.0.2 (API 21), `armeabi-v7a`, serial `e3572b180497ec75` |
@@ -120,19 +120,52 @@ Goal: a production app skeleton that builds, installs, logs to its own file and 
 - **The recognizer reports BUSY** when started immediately after speaking; a 400 ms pause plus one silent retry fixes the follow-up window.
 - Spoken-text clean-up must keep symbols like `°` while removing emoji and markdown.
 
-### Phase 3 — LLM gateway ☐
+### Phase 3 — LLM gateway ☑
 
-| ID | Task |
-|---|---|
-| P3-1 | `LlmProvider` interface + `OpenAiCompatibleProvider` (chat completions, timeouts, optional streaming) |
-| P3-2 | Presets: Gemini API, Groq, Mistral, Cerebras, OpenRouter `:free` (FR-LLM-02) |
-| P3-3 | `LlmGateway`: ordered providers, fallback on 429/5xx/timeout/TLS, cooldown with `Retry-After`, daily counters (FR-LLM-03..06, 09, 10) |
-| P3-4 | Persona prompt (French, Minion-style, concise ≤ 3 sentences) + optional `[emotion]` tag (FR-CONV-08, 11, FR-FACE-04) |
-| P3-5 | `GeminiWebProvider` (experimental, disabled by default): hidden WebView, new chat per question via confirm dialog, watchdog reload on no first text in ~20 s, speakable text extraction, updatable `gemini.js` (FR-GWEB-*, SP-02) |
-| P3-6 | Provider health status and debug overlay line (FR-LLM-07, FR-DIAG-02) |
+| ID | Task | Status |
+|---|---|---|
+| P3-1 | `LlmProvider` interface + `OpenAiCompatibleProvider` (chat completions, per-request timeout, error mapping) | ☑ |
+| P3-2 | Presets: Gemini API, Groq, Mistral, Cerebras, OpenRouter `:free` (FR-LLM-02) | ☑ |
+| P3-3 | `LlmGateway`: ordered providers, fallback on 429/5xx/timeout/TLS, cooldown with `Retry-After`, daily counters (FR-LLM-03..06, 09, 10) | ☑ |
+| P3-4 | Persona prompt (French, Minion-style, concise ≤ 3 sentences) + `[emotion]` tag → face expression (FR-CONV-08, 11, FR-FACE-04) | ☑ |
+| P3-5 | `GeminiWebProvider` (experimental, disabled by default): hidden WebView, new chat per question, watchdog reload, speakable text extraction, updatable `gemini.js` (FR-GWEB-*, SP-02) | ☑ |
+| P3-6 | Provider health status and debug overlay (FR-LLM-07, FR-DIAG-02) | ☑ |
+| P3-7 | Config file with the keys, pushed with `adb`, reloadable without reinstalling | ☑ |
 
 **Done when:** acceptance criterion 3 passes (fallback to next provider on forced 429) and criterion 4 passes with Gemini Web enabled.
-**Needs:** free API keys for at least Gemini (AI Studio) and Groq.
+
+**Result (2026-09-18):** ✅ met on the tablet. Streaming (FR-LLM-08, priority C) is not implemented;
+the answer is spoken when it is complete.
+
+| Check | Result |
+|---|---|
+| Fallback on 429 (criterion 3) | `scripts/fallback-test.sh`: two fake providers reached through `adb reverse`, the first always 429. Log: `LLM_FAIL fake-429 RATE_LIMIT` → `LLM_OK fake-ok`, spoken answer |
+| Cooldown | The next question skips the rate-limited provider: `skipped=fake-429 (cooldown 52s)`; `Retry-After` is honoured when sent |
+| Gemini Web, no key (criterion 4) | "Qui a peint la Joconde ?" → *"Bello, c'est Léonard de Vinci qui a peint la fameuse Joconde… Poopaye et bonne journée dans le salon!"* — **11–12 s** on a warm page, 27 s including the page load |
+| Gemini Web broken (criterion 4) | Page pointed at a URL with no chat editor: health check says "cannot be driven", the question is answered by the next provider in **69 ms** instead of waiting 20 s |
+| Idle cost | Page released 90 s after an answer: **7.2–7.6 % CPU, 93 MB** (48 % and 190 MB while loaded) |
+| Persona | Three sentences maximum, French, occasional Minion words, no markdown or emoji to read out |
+| Emotion tag | `[happy]` parsed out of the answer and shown on the face while speaking; `idle+happy` confirmed over the DevTools bridge |
+| Provider health | `scripts/llm.sh status` and `scripts/overlay.sh on`: per provider ok/fail counts, requests today, cooldown left, last error |
+| Keys | `config/bello.local.json` (git-ignored) → `scripts/push-config.sh` → reloaded live with `scripts/llm.sh reload` |
+| Tests | 64 JVM unit tests (40 new), including fallback, cooldown and `Retry-After` against a mock HTTP server |
+
+**Findings:**
+- **A loaded Gemini web page costs ~48 % CPU and ~190 MB while doing nothing** — four times the
+  whole idle budget. The page is now loaded around a question and released 90 s later; idle returns
+  to normal. This is the reason Gemini Web stays an experimental fallback, not the default.
+- **The gateway belongs to the process, not to the activity.** Bello is the home screen and its
+  activity can be created twice in a row (installing the APK is enough), which started two hidden
+  browsers and two health checks. Provider counters and cooldowns also have to survive a restart.
+- **A question that has been cancelled must not speak later.** Network answers arrive seconds after
+  the fact; the conversation now tags each question and drops answers to older ones.
+- **The follow-up window was wiping the written answer** — a question and its answer now stay on
+  screen while Bello listens for the follow-up.
+- **"The page loaded" is not a health check.** A wrong URL loads a perfectly good 404 page, and the
+  real page needs a few seconds before its editor exists. The check now waits for the page to
+  actually accept a question, and an unusable page is skipped for 30 minutes.
+- Gemini Web ignores the per-request timeout (it needs 10–45 s, the APIs get 20 s), so it belongs
+  last in the provider order.
 
 ### Phase 4 — Memory and tools ☐
 

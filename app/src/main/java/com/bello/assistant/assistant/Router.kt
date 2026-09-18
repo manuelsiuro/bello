@@ -3,12 +3,15 @@ package com.bello.assistant.assistant
 import android.content.Context
 import com.bello.assistant.core.AppConfig
 import com.bello.assistant.core.FileLog
+import com.bello.assistant.core.FrenchDates
 import com.bello.assistant.llm.AskOptions
 import com.bello.assistant.llm.LlmGateway
 import com.bello.assistant.memory.BelloDb
 import com.bello.assistant.memory.FactStore
 import com.bello.assistant.memory.SessionMemory
 import com.bello.assistant.tools.Alarms
+import com.bello.assistant.tools.HolidayData
+import com.bello.assistant.tools.Holidays
 import com.bello.assistant.tools.News
 import com.bello.assistant.tools.PagePublisher
 import com.bello.assistant.tools.Schedule
@@ -20,7 +23,7 @@ import com.bello.assistant.voice.SpeechText
 
 /**
  * Decides who answers (FR-TOOL-08): Bello itself for the clock, timers, alarms, the weather, the
- * news, the television and its own memory — a provider for everything else, with the conversation
+ * holidays, the news, the television and its own memory — a provider for everything else, with the conversation
  * so far and the remembered facts attached (FR-MEM-01/03). When an answer is really a page, it offers the
  * details on the phone and waits for a yes (FR-PAGE-01/02).
  */
@@ -54,6 +57,7 @@ class Router(
     private val session = SessionMemory(config.maxTurns, config.sessionIdleMs)
     private val weather = Weather(app)
     private val news = News(app)
+    private val holidays = Holidays(app)
     private val tv: TvBox? = config.tvBox?.let { TvBox(app, it.host, it.port) }
 
     /** The offer the next utterance may be answering. Lost with the Router on a config reload. */
@@ -221,6 +225,9 @@ class Router(
 
         is Intent.News -> news()
 
+        is Intent.PublicHolidays -> publicHolidays(intent, now)
+        is Intent.SchoolHolidays -> schoolHolidays(intent, now)
+
         is Intent.Remember -> {
             facts.add(intent.fact, now)
             say(ToolReplies.remembered(intent.fact), FaceState.HAPPY)
@@ -268,6 +275,36 @@ class Router(
             else -> null
         }
         return if (done == null) offline(ToolReplies.tvUnreachable()) else say(done, FaceState.HAPPY)
+    }
+
+    /**
+     * Jours fériés and school breaks. Both are kept on the tablet once fetched, so an outage is
+     * not a reason to refuse: the network is offered to the tool, never demanded.
+     */
+    private fun publicHolidays(intent: Intent.PublicHolidays, now: Long): Responder.Answer {
+        val online = isOnline()
+        val offset = intent.offsetDays
+        if (offset == null) {
+            val next = holidays.nextPublicHoliday(now, config.holidayZone, online)
+                ?: return offline(ToolReplies.publicHolidaysUnknown())
+            return say(ToolReplies.publicHolidayNext(next, now))
+        }
+        val day = FrenchDates.addDays(now, offset)
+        val on = holidays.publicHolidayOn(day, config.holidayZone, online)
+        val next = if (on == null) holidays.nextPublicHoliday(day, config.holidayZone, online) else null
+        if (on == null && next == null) return offline(ToolReplies.publicHolidaysUnknown())
+        return say(ToolReplies.publicHolidayOn(offset, on, next, now), if (on != null) FaceState.HAPPY else null)
+    }
+
+    private fun schoolHolidays(intent: Intent.SchoolHolidays, now: Long): Responder.Answer {
+        val all = holidays.schoolBreaks(now, config.schoolZone, config.schoolAcademy, isOnline())
+        val wanted = intent.named?.let { name ->
+            all.filter { Intents.deaccent(it.description.lowercase()).contains(name) }
+        } ?: all
+        val current = HolidayData.currentBreak(wanted, now)
+        val next = HolidayData.nextBreak(wanted, now)
+        if (current == null && next == null) return offline(ToolReplies.schoolBreaksUnknown())
+        return say(ToolReplies.schoolBreak(current, next, now, intent.askingNow), FaceState.HAPPY)
     }
 
     /** Headlines are facts; turning them into two or three spoken sentences is a provider's job. */

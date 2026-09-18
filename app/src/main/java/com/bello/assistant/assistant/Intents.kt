@@ -22,6 +22,15 @@ sealed class Intent {
     data class AlarmCancel(val all: Boolean) : Intent()
     data class Weather(val city: String?, val tomorrow: Boolean) : Intent()
     object News : Intent()
+
+    /** Jours fériés: [offsetDays] is null for "the next one", 0 for today, 1 for tomorrow. */
+    data class PublicHolidays(val offsetDays: Int?) : Intent()
+    /**
+     * School breaks; [named] is the one the question asked for ("noel"), null for the next one.
+     * [askingNow] is "on est en vacances ?" rather than "c'est quand les vacances ?": it deserves
+     * a yes or a no before the date.
+     */
+    data class SchoolHolidays(val named: String?, val askingNow: Boolean = false) : Intent()
     data class Remember(val fact: String) : Intent()
     data class Forget(val what: String?) : Intent()
     object ListMemories : Intent()
@@ -49,6 +58,7 @@ object Intents {
         timer(text, flat)?.let { return it }
         alarm(text, flat)?.let { return it }
         tv(text, flat, tvChannels)?.let { return it }
+        holidays(flat)?.let { return it }
         weather(text, flat)?.let { return it }
         if (NEWS.containsMatchIn(flat)) return Intent.News
         if (TIME.containsMatchIn(flat)) return Intent.Time
@@ -238,6 +248,41 @@ object Intents {
         val m = Regex("(?<![a-z0-9])(?:$pattern)(?![a-z0-9])").find(flat) ?: return null
         val entry = byFlat.getValue(m.value)
         return Intent.TvChannel(entry.value, entry.key)
+    }
+
+    // --- Holidays, public and school -----------------------------------------------------------
+
+    private val FERIE = Regex("\\bferie[es]?\\b")
+    private val VACANCES = Regex("\\bvacances\\b")
+    private val LATER = Regex("\\b(prochain|prochaine|prochains|prochaines|suivant|bientot|quand|date|dates|combien)\\b")
+    private val NOW_FORM = Regex("\\b(aujourd hui|on est|nous sommes|c est|ce jour)\\b")
+    private val SCHOOL_HINT = Regex("\\b(scolaires?|ecole|college|lycee|enfants|classe|cours)\\b")
+    /** What the household calls a break, against what the ministry calls it. */
+    private val BREAK_NAMES = listOf(
+        Regex("\\btoussaint\\b") to "toussaint",
+        Regex("\\bnoel\\b") to "noel",
+        Regex("\\b(hiver|fevrier)\\b") to "hiver",
+        Regex("\\b(printemps|paques)\\b") to "printemps",
+        // "été" alone is the verb as often as the season: it has to be "des vacances d'été".
+        Regex("\\b(?:d|de|des|du)\\s+ete\\b") to "ete",
+        Regex("\\bascension\\b") to "ascension",
+    )
+
+    private fun holidays(flat: String): Intent? {
+        if (FERIE.containsMatchIn(flat)) {
+            if (flat.contains("demain")) return Intent.PublicHolidays(1)
+            if (LATER.containsMatchIn(flat)) return Intent.PublicHolidays(null)
+            if (NOW_FORM.containsMatchIn(flat)) return Intent.PublicHolidays(0)
+            return Intent.PublicHolidays(null)
+        }
+        if (!VACANCES.containsMatchIn(flat)) return null
+        // "les vacances, c'est quand ?" is a question; "on a passé de bonnes vacances" is not.
+        val asking = LATER.containsMatchIn(flat) || SCHOOL_HINT.containsMatchIn(flat) ||
+            NOW_FORM.containsMatchIn(flat) || FrenchWords.tokens(flat).size <= 3
+        if (!asking) return null
+        val named = BREAK_NAMES.firstOrNull { it.first.containsMatchIn(flat) }?.second
+        val askingNow = NOW_FORM.containsMatchIn(flat) && !LATER.containsMatchIn(flat)
+        return Intent.SchoolHolidays(named, askingNow)
     }
 
     // --- Weather, news, clock ----------------------------------------------------------------

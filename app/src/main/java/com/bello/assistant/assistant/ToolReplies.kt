@@ -1,6 +1,9 @@
 package com.bello.assistant.assistant
 
+import com.bello.assistant.core.FrenchDates
 import com.bello.assistant.memory.Fact
+import com.bello.assistant.tools.PublicHoliday
+import com.bello.assistant.tools.SchoolBreak
 import com.bello.assistant.tools.Schedule
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -159,6 +162,91 @@ object ToolReplies {
     fun tvUnreachable(): String = "Je n'arrive pas à joindre le décodeur télé."
 
     fun tvNotConfigured(): String = "Je n'ai pas de télé à commander. Il faut l'ajouter dans la configuration."
+
+    // --- Holidays, public and school -----------------------------------------------------------
+
+    /**
+     * The government's file names a holiday the way a calendar prints it — "Toussaint", "1er mai",
+     * "Jour de Noël" — and a sentence needs an article in front of it. "1er" is written out: the
+     * voice reads the word, not the abbreviation.
+     */
+    fun holidayName(name: String): String {
+        val spoken = name.replace(Regex("^1er\\b"), "premier")
+        val flat = Intents.deaccent(spoken.lowercase())
+        return when {
+            spoken.first().isDigit() -> "le $spoken"
+            flat.startsWith("premier") -> "le $spoken"
+            flat.first() in "aeiouy" || flat.startsWith("h") -> "l'$spoken"
+            FEMININE_HOLIDAYS.any { flat.startsWith(it) } -> "la $spoken"
+            else -> "le $spoken"
+        }
+    }
+
+    fun publicHolidayNext(holiday: PublicHoliday, now: Long): String {
+        val days = FrenchDates.daysBetween(now, holiday.day)
+        val what = holidayName(holiday.name)
+        return when {
+            days <= 0 -> "Aujourd'hui, c'est férié : $what."
+            days == 1 -> "Demain, c'est férié : $what."
+            // "Le prochain jour férié est le 14 juillet, mardi 14 juillet" says it twice.
+            holiday.name.first().isDigit() ->
+                "Le prochain jour férié est $what, un ${FrenchDates.weekday(holiday.day)}, dans $days jours."
+            else ->
+                "Le prochain jour férié est $what, ${FrenchDates.say(holiday.day)}, dans $days jours."
+        }
+    }
+
+    /** "C'est férié demain ?" — yes or no first, then the next one when the answer is no. */
+    fun publicHolidayOn(
+        offsetDays: Int,
+        holiday: PublicHoliday?,
+        next: PublicHoliday?,
+        now: Long,
+    ): String {
+        val day = if (offsetDays == 1) "demain" else "aujourd'hui"
+        if (holiday != null) return "Oui, $day c'est férié : ${holidayName(holiday.name)}."
+        val no = "Non, $day n'est pas férié."
+        return if (next == null) no else "$no ${publicHolidayNext(next, now)}"
+    }
+
+    /**
+     * "C'est quand les vacances ?" — the one we are in when there is one, the next otherwise. A
+     * bridge lasts a single day, and saying when classes resume after it would be silly.
+     */
+    fun schoolBreak(
+        current: SchoolBreak?,
+        next: SchoolBreak?,
+        now: Long,
+        askingNow: Boolean = false,
+    ): String {
+        val period = current ?: next ?: return schoolBreaksUnknown()
+        val no = if (askingNow && current == null) "Non, pas encore. " else ""
+        val what = period.description.trim()
+        val holiday = what.startsWith("Vacances", ignoreCase = true)
+        val opening = when {
+            current != null && holiday -> "On est en vacances ${what.substringAfter(' ').trim()}."
+            current != null -> "C'est ${holidayName(what)}."
+            holiday -> "Les ${what.replaceFirstChar { it.lowercase() }} commencent " +
+                "${FrenchDates.say(period.start)}, ${inDays(FrenchDates.daysBetween(now, period.start))}."
+            else -> "${holidayName(what).replaceFirstChar { it.uppercase() }}, c'est " +
+                "${FrenchDates.say(period.start)}, ${inDays(FrenchDates.daysBetween(now, period.start))}."
+        }
+        val oneDay = FrenchDates.daysBetween(period.start, period.resume) <= 1
+        val resumes = if (oneDay) "" else " Les cours reprennent ${FrenchDates.say(period.resume)}."
+        return "$no$opening$resumes"
+    }
+
+    fun publicHolidaysUnknown(): String = "Je n'arrive pas à consulter le calendrier des jours fériés."
+
+    fun schoolBreaksUnknown(): String = "Je n'arrive pas à consulter le calendrier des vacances scolaires."
+
+    private fun inDays(days: Int): String = when {
+        days <= 0 -> "aujourd'hui"
+        days == 1 -> "demain"
+        else -> "dans $days jours"
+    }
+
+    private val FEMININE_HOLIDAYS = listOf("toussaint", "pentecote", "abolition")
 
     // --- A page for the phone (FR-PAGE) ---------------------------------------------------------
 

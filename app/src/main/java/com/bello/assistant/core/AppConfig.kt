@@ -16,6 +16,11 @@ data class AppConfig(
     val newsFeeds: List<String> = DEFAULT_FEEDS,
     val maxTurns: Int = 10,
     val sessionIdleMs: Long = 10 * 60_000,
+    /** Which public holidays apply: "metropole", "alsace-moselle", or an overseas code. */
+    val holidayZone: String = "metropole",
+    /** The school holiday zone and académie of the house (Grasse is Nice, zone B). */
+    val schoolZone: String = "Zone B",
+    val schoolAcademy: String = "Nice",
     /** The SFR TV decoder (docs/sfr-tv-box.md); null when `"tvBox": {"enabled": false}`. */
     val tvBox: TvBoxConfig? = TvBoxConfig(),
 ) {
@@ -98,6 +103,9 @@ data class AppConfig(
                 newsFeeds = feeds,
                 maxTurns = root.optInt("maxTurns", 10),
                 sessionIdleMs = root.optLong("sessionIdleMs", 10 * 60_000),
+                holidayZone = root.optString("holidayZone").ifBlank { "metropole" },
+                schoolZone = root.optString("schoolZone").ifBlank { "Zone B" },
+                schoolAcademy = root.optString("schoolAcademy").ifBlank { "Nice" },
                 tvBox = TvBoxConfig.parse(root.optJSONObject("tvBox")),
             )
         }

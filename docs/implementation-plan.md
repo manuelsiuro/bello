@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Phases 0–6 done · Phase 7: 11 of 12 criteria pass, the 7-day soak restarted by the Phase 9 install · Phase 8 (the details on the phone) built and verified · Phase 9 (the television) built, keys to be checked on the screen |
+| Status | Phases 0–8 done · Phase 7: 11 of 12 criteria pass, the soak restarted by the Phase 10 install · Phase 9 (the television) built, keys to be checked on the screen · Phase 10 (the two calendars) built and verified |
 | Date | 2026-09-18 |
 | Inputs | [requirements.md](requirements.md) · [feasibility-results.md](feasibility-results.md) · [device-galaxy-tab4.md](device-galaxy-tab4.md) |
 | Target | Galaxy Tab 4 SM-T530, Android 5.0.2 (API 21), `armeabi-v7a`, serial `e3572b180497ec75` |
@@ -454,6 +454,46 @@ The SFR TV decoder in the house, driven the way the SFR TV app drives it: [sfr-t
 
 **Result (2026-09-18):** built, 186 JVM unit tests pass (174 before), installed on the tablet. The status question is answered from the box in the room; the keys wait for the television to be watched (P9-6) — the box acknowledges any key name, so only the screen can confirm them.
 
+### Phase 10 — The two calendars everybody asks about
+
+The first two free services chosen from the study in [free-services.md](free-services.md): the public
+holidays and the school holidays, both key-free government files.
+
+| # | Task | Done |
+|---|---|---|
+| P10-1 | `core/FrenchDates`: days in the house's timezone, whole-day arithmetic across the clock changes, and dates in French words ("dimanche premier novembre") | ☑ |
+| P10-2 | `core/TextCache`: small answers kept on the tablet with the time of the fetch, and served again when the network fails | ☑ |
+| P10-3 | `tools/Holidays`: the two government files, read and cached; the teachers' summer dropped, a one-day "pont" understood | ☑ |
+| P10-4 | `assistant/Intents` and `ToolReplies`: the French questions and the spoken answers, including a yes or a no to « on est en vacances ? » | ☑ |
+| P10-5 | `core/AppConfig`: `holidayZone`, `schoolZone`, `schoolAcademy` for a household that is not in Grasse | ☑ |
+
+**Done when:** « c'est quand le prochain jour férié ? » and « c'est quand les vacances ? » are answered on the tablet, with the date, the day of the week and when classes resume.
+
+**Result (2026-09-18):** built, 205 JVM unit tests pass (186 before), verified on the tablet:
+
+| Question | Answered |
+|---|---|
+| « c'est quand le prochain jour férié ? » | « Le prochain jour férié est la Toussaint, dimanche premier novembre, dans 44 jours. » |
+| « c'est férié demain ? » | « Non, demain n'est pas férié. » then the next one |
+| « c'est quand les vacances ? » | « Les vacances de la Toussaint commencent samedi 17 octobre, dans 29 jours. Les cours reprennent lundi 2 novembre. » |
+| « c'est quand les vacances de Noël ? » | the named break: samedi 19 décembre, classes back lundi 4 janvier |
+| « on est en vacances ? » | « Non, pas encore. » then the dates |
+
+Both files are in `files/cache` on the tablet after the first question. The fetch costs **596 ms**
+for the school calendar and **262 ms** for the jours fériés; the same question asked again is
+answered in **12 ms**, from the tablet alone.
+
+**What the real data taught, and the tests keep:**
+
+- **The ministry writes its days as UTC midnights of Paris.** A break starting `2026-10-16T22:00:00+00:00`
+  starts on Saturday the 17th, and one ending `2026-11-01T23:00:00+00:00` ends with classes resuming
+  on Monday the 2nd. Reading those as dates rather than as instants would move every answer by a day.
+- **A "pont" has the same start and end.** The bridge after Ascension is published as a zero-length
+  period; it is a single day off, and saying when classes resume after it would be silly.
+- **Summer is published twice**, for the children and for the teachers. The household is asking
+  about the children.
+- **The first of the month is spoken, not abbreviated**: "dimanche premier novembre", never "1er".
+
 ## 5. Inputs needed from the user
 
 | When | Input |
@@ -489,7 +529,7 @@ twelfth is the seven-day unattended run, started 2026-09-18 11:44 (`scripts/soak
 | Cost, everything running | 12–16 % CPU, 33–34 °C, ~167 MB (budgets: 35 %, 42 °C, 350 MB) |
 | Cost, face alone | 6 % CPU, 67 MB |
 | Recovering | crash → back in ~1 s with a backing-off restart; reboot → face 4 s after `BOOT_COMPLETED`, alarms re-armed; network gone → local tools keep working, answers in 6 ms, resumes by itself |
-| Tests | 186 JVM unit tests (174 before Phase 9) |
+| Tests | 205 JVM unit tests (186 before Phase 10) |
 
 **Still open, and recorded as such:**
 
@@ -505,7 +545,8 @@ twelfth is the seven-day unattended run, started 2026-09-18 11:44 (`scripts/soak
    confirmed only by watching the screen: ten minutes with `scripts/tv.sh` (P9-6), plus the
    household's channel names for `tvBox.channels` if they differ from the TNT table.
 6. **Which free services to add next**: the study in [free-services.md](free-services.md) ranks
-   thirteen features that need no sign-up and six that need a free one; the choice is the owner's.
+   thirteen features that need no sign-up and six that need a free one. The two calendars are
+   built (Phase 10); the rest is the owner's choice.
 
 **If someone picks this up later**, the two habits that caught the most problems were re-running
 the acceptance criteria against the build in hand rather than trusting the last phase's result —

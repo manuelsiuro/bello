@@ -142,4 +142,33 @@ class IntentsTest {
         assertEquals(Intent.None, tv("c'est quoi une télé 4K ?"))
         assertEquals(Intent.None, Intents.match("mets TF1"))  // no channel table, no guess
     }
+
+    // --- Holidays -----------------------------------------------------------------------------
+
+    @Test fun `public holidays`() {
+        assertEquals(Intent.PublicHolidays(null), match("C'est quand le prochain jour férié ?"))
+        assertEquals(Intent.PublicHolidays(null), match("le prochain jour férié"))
+        assertEquals(Intent.PublicHolidays(null), match("Il y a un jour férié bientôt ?"))
+        assertEquals(Intent.PublicHolidays(1), match("C'est férié demain ?"))
+        assertEquals(Intent.PublicHolidays(1), match("Demain c'est férié ?"))
+        assertEquals(Intent.PublicHolidays(0), match("C'est férié aujourd'hui ?"))
+        assertEquals(Intent.PublicHolidays(0), match("C'est férié ?"))
+    }
+
+    @Test fun `school holidays`() {
+        assertEquals(Intent.SchoolHolidays(null), match("C'est quand les vacances ?"))
+        assertEquals(Intent.SchoolHolidays(null), match("Les vacances scolaires"))
+        assertEquals(Intent.SchoolHolidays(null, askingNow = true), match("On est en vacances ?"))
+        assertEquals(Intent.SchoolHolidays(null, askingNow = true), match("C'est les vacances ?"))
+        assertEquals(Intent.SchoolHolidays(null), match("vacances"))
+        assertEquals(Intent.SchoolHolidays("noel"), match("C'est quand les vacances de Noël ?"))
+        assertEquals(Intent.SchoolHolidays("hiver"), match("Les vacances de février, c'est quand ?"))
+        assertEquals(Intent.SchoolHolidays("printemps"), match("Quand sont les vacances de Pâques ?"))
+        assertEquals(Intent.SchoolHolidays("ete"), match("Les vacances d'été commencent quand ?"))
+    }
+
+    @Test fun `a holiday told about is not a holiday asked about`() {
+        assertEquals(Intent.None, match("J'ai passé de bonnes vacances à la montagne"))
+        assertEquals(Intent.None, match("Raconte-moi tes plus belles vacances au bord de la mer"))
+    }
 }

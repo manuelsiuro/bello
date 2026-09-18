@@ -1,5 +1,8 @@
 package com.bello.assistant.assistant
 
+import com.bello.assistant.core.FrenchDates
+import com.bello.assistant.tools.PublicHoliday
+import com.bello.assistant.tools.SchoolBreak
 import com.bello.assistant.memory.Fact
 import com.bello.assistant.tools.NextOccurrence
 import com.bello.assistant.tools.Schedule
@@ -136,5 +139,83 @@ class ToolRepliesTest {
         assertEquals("Chut.", ToolReplies.tvMute(silence = true))
         assertEquals("La télé est éteinte.", ToolReplies.tvStatus(on = false))
         assertEquals("Je n'arrive pas à joindre le décodeur télé.", ToolReplies.tvUnreachable())
+    }
+
+    // --- Holidays -----------------------------------------------------------------------------
+
+    private val noon = FrenchDates.parseDay("2026-09-18")!! + 12 * 3_600_000
+    private fun day(text: String) = FrenchDates.parseDay(text)!!
+
+    @Test fun `a holiday is named with its article, and the first of the month is a word`() {
+        assertEquals("la Toussaint", ToolReplies.holidayName("Toussaint"))
+        assertEquals("l'Ascension", ToolReplies.holidayName("Ascension"))
+        assertEquals("l'Assomption", ToolReplies.holidayName("Assomption"))
+        assertEquals("le premier mai", ToolReplies.holidayName("1er mai"))
+        assertEquals("le 8 mai", ToolReplies.holidayName("8 mai"))
+        assertEquals("le Jour de Noël", ToolReplies.holidayName("Jour de Noël"))
+        assertEquals("le Lundi de Pâques", ToolReplies.holidayName("Lundi de Pâques"))
+    }
+
+    @Test fun `the next public holiday, near and far`() {
+        assertEquals(
+            "Le prochain jour férié est la Toussaint, dimanche premier novembre, dans 44 jours.",
+            ToolReplies.publicHolidayNext(PublicHoliday("Toussaint", day("2026-11-01")), noon),
+        )
+        // A holiday whose name is its date says the date once, and gives the weekday.
+        assertEquals(
+            "Le prochain jour férié est le 11 novembre, un mercredi, dans 10 jours.",
+            ToolReplies.publicHolidayNext(PublicHoliday("11 novembre", day("2026-11-11")), day("2026-11-01")),
+        )
+        assertEquals(
+            "Aujourd'hui, c'est férié : la Toussaint.",
+            ToolReplies.publicHolidayNext(PublicHoliday("Toussaint", day("2026-11-01")), day("2026-11-01") + 3_600_000),
+        )
+        assertEquals(
+            "Demain, c'est férié : la Toussaint.",
+            ToolReplies.publicHolidayNext(PublicHoliday("Toussaint", day("2026-11-01")), day("2026-10-31")),
+        )
+    }
+
+    @Test fun `is it a holiday today or tomorrow`() {
+        val toussaint = PublicHoliday("Toussaint", day("2026-11-01"))
+        assertEquals(
+            "Oui, aujourd'hui c'est férié : la Toussaint.",
+            ToolReplies.publicHolidayOn(0, toussaint, null, day("2026-11-01")),
+        )
+        assertEquals(
+            "Non, demain n'est pas férié. Le prochain jour férié est la Toussaint, dimanche premier novembre, dans 44 jours.",
+            ToolReplies.publicHolidayOn(1, null, toussaint, noon),
+        )
+        assertEquals("Non, aujourd'hui n'est pas férié.", ToolReplies.publicHolidayOn(0, null, null, noon))
+    }
+
+    @Test fun `the school breaks, the one to come and the one we are in`() {
+        val toussaint = SchoolBreak("Vacances de la Toussaint", day("2026-10-17"), day("2026-11-02"))
+        assertEquals(
+            "Les vacances de la Toussaint commencent samedi 17 octobre, dans 29 jours. " +
+                "Les cours reprennent lundi 2 novembre.",
+            ToolReplies.schoolBreak(null, toussaint, noon),
+        )
+        assertEquals(
+            "On est en vacances de la Toussaint. Les cours reprennent lundi 2 novembre.",
+            ToolReplies.schoolBreak(toussaint, null, day("2026-10-20")),
+        )
+        // A bridge is one day: when classes resume goes without saying.
+        val bridge = SchoolBreak("Pont de l'Ascension", day("2027-05-07"), day("2027-05-08"))
+        assertEquals(
+            "Le Pont de l'Ascension, c'est vendredi 7 mai, demain.",
+            ToolReplies.schoolBreak(null, bridge, day("2027-05-06")),
+        )
+        // "On est en vacances ?" deserves a yes or a no before the date.
+        assertEquals(
+            "Non, pas encore. Les vacances de la Toussaint commencent samedi 17 octobre, dans 29 jours. " +
+                "Les cours reprennent lundi 2 novembre.",
+            ToolReplies.schoolBreak(null, toussaint, noon, askingNow = true),
+        )
+        assertEquals(
+            "On est en vacances de la Toussaint. Les cours reprennent lundi 2 novembre.",
+            ToolReplies.schoolBreak(toussaint, null, day("2026-10-20"), askingNow = true),
+        )
+        assertEquals(ToolReplies.schoolBreaksUnknown(), ToolReplies.schoolBreak(null, null, noon))
     }
 }

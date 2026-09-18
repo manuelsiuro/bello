@@ -106,6 +106,12 @@ Home screen: after installing, press Home on the tablet and choose Bello → "Al
   anything, so a key name is only ever proven on the screen. Intents come from `assistant/Intents`
   with the channel table of `config.json` (`tvBox.channels`, TNT numbering by default); "stop la
   télé" is the television, "stop" alone is still Bello.
+- Holidays: `tools/Holidays` answers « c'est férié demain ? » and « c'est quand les vacances ? »
+  from two key-free government files (`calendrier.api.gouv.fr`, `data.education.gouv.fr`). Both are
+  kept in `files/cache` by `core/TextCache`, so the answer survives an outage and costs one fetch a
+  year; a failed fetch falls back to the kept copy. Dates go through `core/FrenchDates`: the school
+  calendar writes its days as UTC midnights of Paris, a "pont" arrives with the same start and end
+  date, and summer is published twice, for the children and for the teachers.
 - Memory and schedules are one small SQLite file (`memory/BelloDb`): facts survive restarts, timers
   and alarms are put back into `AlarmManager` after a reboot.
 - Wake word: `voice/WakeWord` feeds Vosk only when the room makes a sound, and `voice/WakeWordDecision`

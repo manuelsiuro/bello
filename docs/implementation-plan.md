@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Phases 0–4 done · Phase 5 built and tuned, awaiting real-room validation |
+| Status | Phases 0–5 done · Phase 6 next |
 | Date | 2026-09-18 |
 | Inputs | [requirements.md](requirements.md) · [feasibility-results.md](feasibility-results.md) · [device-galaxy-tab4.md](device-galaxy-tab4.md) |
 | Target | Galaxy Tab 4 SM-T530, Android 5.0.2 (API 21), `armeabi-v7a`, serial `e3572b180497ec75` |
@@ -217,22 +217,23 @@ the answer is spoken when it is complete.
 - An expression (the alert badge) outlives a state change, so the face can keep looking alarmed
   while it speaks and then listens for "stop".
 
-### Phase 5 — Wake word "Bello" ◐
+### Phase 5 — Wake word "Bello" ☑
 
 | ID | Task | Status |
 |---|---|---|
 | P5-1 | Production wake listener (energy gate, pre-roll, onset-relative timing) + `WakeWordDecision` rule as a pure, unit-tested class | ☑ |
 | P5-2 | Microphone arbitration: pause wake word during STT and TTS (FR-WAKE-04, 05) | ☑ |
 | P5-3 | Provisional wake: open STT; if no speech follows, return to idle silently | ☑ |
-| P5-4 | Validation and tuning on audio the rule has never seen; fallback "Salut Bello" if needed | ◐ — tuned; the real-room half needs a voice, and `scripts/wake-live.sh` is the three-minute way to give it one |
+| P5-4 | Validation and tuning on audio the rule has never seen; fallback "Salut Bello" if needed | ☑ — tuned on new audio; "Salut Bello" was not needed (false wakes went to zero without it) |
 | P5-5 | Sensitivity and enable/disable settings (FR-WAKE-02, 03) | ☑ |
 
 **Done when:** in the real home, detection ≥ 80 % and false wakes ≤ 1 / hour; idle CPU with wake word ≤ 35 %.
 
-**Where it stands (2026-09-18):** built, tuned and measured on the tablet against material the rule
-had never seen — four synthetic voices it was not designed on, and that morning's news read aloud.
-The remaining ◐ is the part no laptop speaker can settle: real voices, in the room where it will
-live, with the television on. See "Inputs needed from the user".
+**Closed 2026-09-18, by the owner's decision,** on the measurements below: built, tuned and
+measured on the tablet against material the rule had never seen — four French voices it was not
+designed on, and that morning's news read aloud. Detection with a *real* voice in the real room was
+not measured (one live call was seen, at conf 1.00); `scripts/wake-live.sh calls 10` prints it in
+three minutes whenever it is worth knowing, and the thresholds follow from `wake-test.sh score`.
 
 | Check | Result |
 |---|---|
@@ -313,7 +314,7 @@ Phase 5 can start after Phase 2 (needs mic arbitration with STT/TTS). Phase 6 ca
 |---|---|
 | ~~Before Phase 3~~ | ✅ Provided 2026-09-18: Gemini (AI Studio) and Groq keys, in `config/bello.local.json` |
 | Phase 1 (optional) | Face design direction, or keep the SP-06 placeholder |
-| **Phase 5 (needed to close it)** | Three minutes of your own voice — `scripts/wake-live.sh calls 10` prompts you to say "Bello" ten times and prints the detection rate — and, when convenient, `scripts/wake-live.sh room 30` with the television on for the false-wake half. Nothing is played from the Mac; the tablet listens to the room it lives in, and `scripts/wake-test.sh score` then picks thresholds from what it heard |
+| Phase 5 (optional now; the phase was accepted without it) | Three minutes of your own voice — `scripts/wake-live.sh calls 10` prompts you to say "Bello" ten times and prints the detection rate — and, when convenient, `scripts/wake-live.sh room 30` with the television on for the false-wake half. Nothing is played from the Mac; the tablet listens to the room it lives in, and `scripts/wake-test.sh score` then picks thresholds from what it heard |
 | Phase 7 | Smart plug or charging schedule decision |
 
 ## 6. Key risks carried from the spikes

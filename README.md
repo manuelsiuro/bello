@@ -4,7 +4,7 @@ An always-on, French-speaking voice assistant with a Minion face, running on a *
 (2014, Android 5.0.2)** that would otherwise be in a drawer. Ask out loud or type; it answers out
 loud and on screen. Running cost: **zero** — free API tiers only, and a key-free fallback.
 
-![state](https://img.shields.io/badge/phases%200--4-done-brightgreen) ![wake](https://img.shields.io/badge/wake%20word-in%20testing-yellow) ![device](https://img.shields.io/badge/Android-5.0.2%20(API%2021)-blue)
+![state](https://img.shields.io/badge/phases%200--5-done-brightgreen) ![device](https://img.shields.io/badge/Android-5.0.2%20(API%2021)-blue)
 
 ## What works today
 
@@ -13,8 +13,8 @@ loud and on screen. Running cost: **zero** — free API tiers only, and a key-fr
   dialog.
 - **It answers to its name.** Say « Bello » across the room and the face starts listening, offline,
   with no key and no network. If nobody then speaks, it goes quiet again without a word, so being
-  wrong costs nothing. It catches roughly three calls in four from across a room, so it is still
-  being tuned — and the tap always works.
+  wrong costs nothing. It catches roughly three calls in four from across a room, and the tap is
+  always there for the fourth.
 - **Conversation.** Tap the face and speak French, or type. The answer is spoken with a Minion voice
   (Google TTS, pitched up) and written under the face. It keeps listening for a few seconds so a
   follow-up question needs no second tap, and tapping while it talks interrupts it.

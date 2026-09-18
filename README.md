@@ -4,13 +4,17 @@ An always-on, French-speaking voice assistant with a Minion face, running on a *
 (2014, Android 5.0.2)** that would otherwise be in a drawer. Ask out loud or type; it answers out
 loud and on screen. Running cost: **zero** — free API tiers only, and a key-free fallback.
 
-![state](https://img.shields.io/badge/phases%200--4-done-brightgreen) ![device](https://img.shields.io/badge/Android-5.0.2%20(API%2021)-blue)
+![state](https://img.shields.io/badge/phases%200--4-done-brightgreen) ![wake](https://img.shields.io/badge/wake%20word-in%20testing-yellow) ![device](https://img.shields.io/badge/Android-5.0.2%20(API%2021)-blue)
 
 ## What works today
 
 - **Always on.** The app is the home screen: it starts itself after a reboot, keeps the screen lit,
   comes back if it is pushed aside, and restarts itself after a crash without ever showing a system
   dialog.
+- **It answers to its name.** Say « Bello » across the room and the face starts listening, offline,
+  with no key and no network. If nobody then speaks, it goes quiet again without a word, so being
+  wrong costs nothing. It catches roughly three calls in four from across a room, so it is still
+  being tuned — and the tap always works.
 - **Conversation.** Tap the face and speak French, or type. The answer is spoken with a Minion voice
   (Google TTS, pitched up) and written under the face. It keeps listening for a few seconds so a
   follow-up question needs no second tap, and tapping while it talks interrupts it.
@@ -28,8 +32,7 @@ loud and on screen. Running cost: **zero** — free API tiers only, and a key-fr
 - **Alarms survive a reboot** — set one, restart the tablet, it still rings on time.
 - **A face that costs almost nothing.** HTML/CSS, ~6 % CPU idle and ~67 MB on a 2014 tablet.
 
-Still to come: the "Bello" wake word (so it needs no tap), presence detection, night dimming and a
-settings screen. See the [implementation plan](docs/implementation-plan.md).
+Still to come: presence detection, night dimming and a settings screen. See the [implementation plan](docs/implementation-plan.md).
 
 ## Things you can say
 
@@ -37,6 +40,7 @@ Everything is in French, since that is the language it was built for.
 
 | You say | What happens |
 |---|---|
+| « Bello » (then your question) | It starts listening without a tap |
 | « Quelle heure est-il ? » | Answered on the spot, no network |
 | « Mets un minuteur de 3 minutes pour les pâtes » | Countdown on screen, rings and says why |
 | « Réveille-moi à 7 heures » · « Rappelle-moi à 18 heures de sortir les poubelles » | Alarm, with its label, surviving reboots |
@@ -87,6 +91,9 @@ A few things this project had to work around on Android 5, written up in the doc
 - Animating an SVG repaints the whole screen every frame: 13 % CPU for an idle face, versus 6 % for
   the same face in HTML and CSS.
 - A loaded Gemini web page costs ~48 % CPU doing nothing, so it is only kept open around a question.
+- Listening for a wake word all day is affordable only if the recogniser is fed sound and not
+  silence, and if it stops decoding a sentence as soon as the word is not in it: 19 % of a 2014
+  processor instead of 42 % while a room talks.
 - Free services fail in ordinary ways that are easy to forget: model names get retired and answer
   404 forever, a weather API returns 503 for one request, and a speech recognizer reports an error
   for the cancellation you asked for.

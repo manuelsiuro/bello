@@ -39,6 +39,8 @@ scripts/overlay.sh on|off   # debug overlay on the face (state, provider, latenc
 scripts/fallback-test.sh    # forces a 429 from a fake provider and checks the fallback + cooldown
 scripts/models.sh gemini    # list the models a configured key can actually use
 scripts/ask.sh "…"          # alias of text.sh: ask a question and print the answer from the log
+scripts/wake.sh on|off|low|normal|high|status   # the "Bello" wake word
+scripts/wake-test.sh make|background|detect|noise|score  # measure detection and false wakes
 ```
 
 API keys: copy `config/bello.example.json` to `config/bello.local.json` (git-ignored), add your free
@@ -78,5 +80,11 @@ Home screen: after installing, press Home on the tablet and choose Bello → "Al
   (pure, unit tested) — never build a sentence to be spoken inline.
 - Memory and schedules are one small SQLite file (`memory/BelloDb`): facts survive restarts, timers
   and alarms are put back into `AlarmManager` after a reboot.
+- Wake word: `voice/WakeWord` feeds Vosk only when the room makes a sound, and `voice/WakeWordDecision`
+  (pure, unit tested) decides from confidence, when the word starts after the onset, and the silence
+  after it. Every candidate is logged as `WAKE_HEARD`, so thresholds are scored from a real room
+  (`scripts/wake-test.sh`) instead of guessed. The microphone is exclusive: the wake word pauses for
+  the whole of a conversation. A wake is provisional — if no speech follows, Bello returns to idle
+  without saying anything.
 - Voice: speech in/out live in `voice/`; Google's TTS engine is requested by name, otherwise the system may open a store page over the face. Start the recognizer with a short delay after speaking (it reports BUSY otherwise).
 - No API keys in the repository.

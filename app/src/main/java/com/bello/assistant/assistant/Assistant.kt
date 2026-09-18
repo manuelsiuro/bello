@@ -11,6 +11,8 @@ import com.bello.assistant.ui.FaceView
 import com.bello.assistant.voice.SpeechInput
 import com.bello.assistant.voice.SpeechOutput
 import com.bello.assistant.voice.SpeechText
+import com.bello.assistant.voice.WakeSensitivity
+import com.bello.assistant.voice.WakeWord
 
 /**
  * The conversation: tap or text in, spoken and written answer out (FR-CONV-01..10).
@@ -27,17 +29,26 @@ class Assistant(
     private val stt = SpeechInput(context, this)
     private val ringer = Ringer(context)
     private val tts = SpeechOutput(context, this, prefs.ttsPitch, prefs.ttsRate)
+    private val wake = WakeWord(context, prefs) { onWakeWord() }
 
     private var turn = Turn.IDLE
     private var currentUtterance: String? = null
     private var lastAnswerWasError = false
     private var retriedBusy = false
+    /** True while listening because of a wake word Bello has not yet had confirmed by speech. */
+    private var provisionalWake = false
     /** Bumped whenever a question is dropped, so a late answer from the network is ignored. */
     private var askSeq = 0
 
     private val backToIdle = Runnable { setTurn(Turn.IDLE) }
 
     val currentTurn get() = turn
+
+    init {
+        // Installing the app creates the activity twice in a row, so the microphone may still be
+        // held by the instance being destroyed.
+        main.postDelayed({ wake.start() }, WAKE_START_DELAY_MS)
+    }
 
     // --- Input ---------------------------------------------------------------------------------
 
@@ -47,7 +58,10 @@ class Assistant(
             return
         }
         when (ConversationPolicy.onTap(turn)) {
-            ConversationPolicy.TapAction.START_LISTENING -> startListening(Turn.LISTENING)
+            ConversationPolicy.TapAction.START_LISTENING -> {
+                provisionalWake = false
+                startListening(Turn.LISTENING)
+            }
             ConversationPolicy.TapAction.STOP_SPEAKING -> {
                 FileLog.i(TAG, "barge-in: stopping speech")
                 tts.stop()
@@ -60,6 +74,7 @@ class Assistant(
     fun onUserText(text: String) {
         val clean = text.trim()
         if (clean.isEmpty()) return
+        provisionalWake = false
         askSeq++
         cancelTimers()
         stt.cancel()
@@ -67,6 +82,37 @@ class Assistant(
         face.showAnswer("")
         think(clean)
     }
+
+    /**
+     * "Bello" heard across the room (FR-WAKE-01). The wake is provisional: the recogniser is
+     * opened, and if no speech follows, Bello goes quietly back to idle without an error.
+     */
+    private fun onWakeWord() {
+        if (ringer.isRinging) {
+            stopRinging("wake word")
+            return
+        }
+        if (turn != Turn.IDLE) {
+            FileLog.i(TAG, "wake word ignored in turn=$turn")
+            return
+        }
+        provisionalWake = true
+        face.showUser("")
+        startListening(Turn.LISTENING, WAKE_LISTEN_DELAY_MS)
+    }
+
+    /** `scripts/wake.sh`: on, off, low, normal, high, status. */
+    fun wakeCommand(command: String) {
+        when (command.lowercase()) {
+            "on" -> wake.setEnabled(true)
+            "off" -> wake.setEnabled(false)
+            "status" -> {}
+            else -> wake.setSensitivity(WakeSensitivity.from(command))
+        }
+        FileLog.i(TAG, "WAKE_STATUS ${wake.status()}")
+    }
+
+    fun wakeStatus(): String = wake.status()
 
     /** Swaps the answer source, e.g. after the config file is reloaded. */
     fun setResponder(next: Responder) {
@@ -83,6 +129,7 @@ class Assistant(
     /** A timer or an alarm went off (FR-TOOL-04): ring, look alert, say what it was about. */
     fun ring(text: String) {
         cancelTimers()
+        wake.pause("ringing")
         stt.cancel()
         tts.stop()
         ringer.start()
@@ -121,6 +168,7 @@ class Assistant(
     }
 
     fun release() {
+        wake.release()
         ringer.stop("release")
         cancelTimers()
         stt.release()
@@ -155,6 +203,8 @@ class Assistant(
     }
 
     override fun onFinal(text: String, confidence: Float?) {
+        // Speech followed the wake word, so it was a real one.
+        provisionalWake = false
         face.showUser(text)
         think(text)
     }
@@ -172,9 +222,10 @@ class Assistant(
             startListening(Turn.FOLLOW_UP, RECOGNIZER_RETRY_MS)
             return
         }
-        if (ConversationPolicy.silentOnNoSpeech(turn) &&
+        if (ConversationPolicy.silentOnNoSpeech(turn, provisionalWake) &&
             (failure == SpeechInput.Failure.NO_SPEECH || failure == SpeechInput.Failure.BUSY)) {
-            FileLog.i(TAG, "no follow-up, back to idle")
+            FileLog.i(TAG, if (provisionalWake) "false wake: nobody spoke, back to idle" else "no follow-up, back to idle")
+            provisionalWake = false
             setTurn(Turn.IDLE)
             return
         }
@@ -278,6 +329,9 @@ class Assistant(
     // --- Helpers --------------------------------------------------------------------------------
 
     private fun setTurn(next: Turn) {
+        // The microphone is exclusive: the wake word listens only between conversations
+        // (FR-WAKE-04, 05).
+        if (next == Turn.IDLE) wake.resume("idle") else wake.pause(next.name.lowercase())
         if (turn == next) return
         if (next == Turn.LISTENING || next == Turn.THINKING) face.setEmotion(null)
         // Back to idle: let the answer's expression linger a moment, then go neutral.
@@ -295,5 +349,8 @@ class Assistant(
         const val AFTER_SPEECH_PAUSE_MS = 400L
         const val RECOGNIZER_RETRY_MS = 600L
         const val EMOTION_LINGER_MS = 4_000L
+        const val WAKE_START_DELAY_MS = 1_500L
+        /** The wake word holds the microphone until it hears one; the recogniser needs it free. */
+        const val WAKE_LISTEN_DELAY_MS = 150L
     }
 }

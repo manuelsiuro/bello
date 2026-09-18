@@ -318,7 +318,7 @@ Requirement families against the phases that deliver them (2026-09-18).
 | FR-CONV (conversation), FR-STT, FR-TTS | 2 | ✅ built; wake word itself is FR-WAKE, Phase 5 |
 | FR-LLM (providers, fallback), FR-GWEB (Gemini Web), FR-DIAG-02 (overlay) | 3 | ✅ built |
 | FR-MEM (memory), FR-TOOL (clock, timers, alarms, weather, news) | 4 | ✅ built |
-| FR-WAKE (wake word "Bello") | 5 | ☐ next — spike passed with a caveat (4.3 false wakes/hour) |
+| FR-WAKE (wake word "Bello") | 5 | ◐ built, tuned and measured (80 % detection, 0 false wakes in 21 min of speech); the acceptance figure needs real voices in the room |
 | FR-PRES (presence), FR-ON-06 (night mode), FR-SET (settings, config import) | 6 | ☐ |
 | NFR-REL, NFR-PERF, acceptance criteria run | 7 | ☐ |
 
@@ -334,6 +334,8 @@ Requirement families against the phases that deliver them (2026-09-18).
 | FR-TOOL-07 (live web info) | Not routed automatically. Gemini's compatibility endpoint refuses search grounding (`Unknown name "google_search"`) and Groq's search model refused the request, so fresh information comes from the news tool or from the Gemini Web provider, which searches by itself. |
 | FR-TOOL-08 (function calling) | Every tool is matched locally, in French, before any provider is called: it is instant, it works with no key and no network, and it cannot be talked out of setting a timer. LLM function calling would add a network round trip to "quelle heure est-il ?". |
 | FR-MEM-04 (delete in settings) | By voice only for now ("oublie…"); the settings screen arrives in Phase 6. |
+| FR-WAKE-02/03 (settings) | Kept where every other setting lives until Phase 6: on the device, changed with `scripts/wake.sh`, remembered across restarts. |
+| FR-CONV-01 (wake word starts listening) | The wake is *provisional*: Bello opens the recogniser but says nothing if no speech follows, so a false wake costs a listening face and nothing else. |
 
 ## 12. Glossary
 

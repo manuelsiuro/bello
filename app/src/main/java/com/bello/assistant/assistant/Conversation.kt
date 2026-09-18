@@ -31,6 +31,11 @@ object ConversationPolicy {
     fun shouldFollowUp(turn: Turn, wasError: Boolean, followUpMs: Int): Boolean =
         turn == Turn.SPEAKING && !wasError && followUpMs > 0
 
-    /** A failed recognition in a follow-up window ends the exchange silently (no "I didn't hear"). */
-    fun silentOnNoSpeech(turn: Turn): Boolean = turn == Turn.FOLLOW_UP
+    /**
+     * A failed recognition ends the exchange silently (no "I didn't hear") in a follow-up window,
+     * and after a wake word Bello was not sure about: a false wake then costs a listening face for
+     * a second and nothing else (FR-WAKE-01).
+     */
+    fun silentOnNoSpeech(turn: Turn, provisional: Boolean = false): Boolean =
+        turn == Turn.FOLLOW_UP || (provisional && turn == Turn.LISTENING)
 }

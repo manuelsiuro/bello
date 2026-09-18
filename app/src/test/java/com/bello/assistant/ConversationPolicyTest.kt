@@ -41,4 +41,11 @@ class ConversationPolicyTest {
         assertTrue(ConversationPolicy.silentOnNoSpeech(Turn.FOLLOW_UP))
         assertFalse(ConversationPolicy.silentOnNoSpeech(Turn.LISTENING))
     }
+
+    @Test
+    fun aFalseWakeCostsNothingButAListeningFace() {
+        assertTrue(ConversationPolicy.silentOnNoSpeech(Turn.LISTENING, provisional = true))
+        // After a tap, silence is worth saying something about: someone is standing there.
+        assertFalse(ConversationPolicy.silentOnNoSpeech(Turn.LISTENING, provisional = false))
+    }
 }

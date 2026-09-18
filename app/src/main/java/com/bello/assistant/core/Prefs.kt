@@ -24,6 +24,16 @@ class Prefs(context: Context) {
         get() = sp.getFloat("ttsRate", 1.05f)
         set(v) = sp.edit().putFloat("ttsRate", v).apply()
 
+    /** Listening for "Bello" without a tap (FR-WAKE-02). */
+    var wakeEnabled: Boolean
+        get() = sp.getBoolean("wakeEnabled", true)
+        set(v) = sp.edit().putBoolean("wakeEnabled", v).apply()
+
+    /** How eager the wake word is: LOW, NORMAL or HIGH (FR-WAKE-03). */
+    var wakeSensitivity: String
+        get() = sp.getString("wakeSensitivity", "NORMAL") ?: "NORMAL"
+        set(v) = sp.edit().putString("wakeSensitivity", v).apply()
+
     /** How long to keep listening for a follow-up after an answer; 0 disables it (FR-CONV-07). */
     var followUpMs: Int
         get() = sp.getInt("followUpMs", 6000)

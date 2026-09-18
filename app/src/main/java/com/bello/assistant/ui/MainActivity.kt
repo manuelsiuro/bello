@@ -131,6 +131,7 @@ class MainActivity : Activity(), FaceView.Listener {
     private fun overlayLines(): List<String> = buildList {
         add("turn=${assistant.currentTurn} ${DebugOverlay.memoryLine()}")
         add("last=${gateway.lastSource ?: "—"} ${gateway.lastLatencyMs} ms")
+        add(assistant.wakeStatus())
         addAll(gateway.statusLines())
     }
 
@@ -181,6 +182,7 @@ class MainActivity : Activity(), FaceView.Listener {
             FaceState.fromJs(s)?.let { face.setState(it) } ?: FileLog.w(TAG, "unknown state '$s'")
         }
         intent.getStringExtra(EXTRA_OVERLAY)?.let { overlay.show(it == "on") }
+        intent.getStringExtra(EXTRA_WAKE)?.let { assistant.wakeCommand(it) }
         intent.getLongExtra(EXTRA_RING, -1).takeIf { it >= 0 }?.let { id ->
             assistant.ring(router.ringingText(id))
             refreshCountdown()
@@ -308,5 +310,6 @@ class MainActivity : Activity(), FaceView.Listener {
         const val EXTRA_OVERLAY = "overlay"
         const val EXTRA_LLM = "llm"
         const val EXTRA_RING = "ring"
+        const val EXTRA_WAKE = "wake"
     }
 }

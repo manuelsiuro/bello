@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Status | Phases 0–4 done · Phase 5 next |
-| Date | 2026-09-17 |
+| Status | Phases 0–4 done · Phase 5 built and tuned, awaiting real-room validation |
+| Date | 2026-09-18 |
 | Inputs | [requirements.md](requirements.md) · [feasibility-results.md](feasibility-results.md) · [device-galaxy-tab4.md](device-galaxy-tab4.md) |
 | Target | Galaxy Tab 4 SM-T530, Android 5.0.2 (API 21), `armeabi-v7a`, serial `e3572b180497ec75` |
 
@@ -217,17 +217,53 @@ the answer is spoken when it is complete.
 - An expression (the alert badge) outlives a state change, so the face can keep looking alarmed
   while it speaks and then listens for "stop".
 
-### Phase 5 — Wake word "Bello" ☐
+### Phase 5 — Wake word "Bello" ◐
 
-| ID | Task |
-|---|---|
-| P5-1 | Production `GatedWakeListener` (energy gate, pre-roll, onset-relative timing) + `WakeWordDecision` rule as a pure, unit-tested class |
-| P5-2 | Microphone arbitration: pause wake word during STT and TTS (FR-WAKE-04, 05) |
-| P5-3 | Provisional wake: open STT; if no speech follows, return to idle silently |
-| P5-4 | Home validation: several hours of real TV/radio + real voices at 0.5–2 m; tune start window [0.10, 0.35] s and thresholds; fallback "Salut Bello" |
-| P5-5 | Sensitivity and enable/disable settings (FR-WAKE-02, 03) |
+| ID | Task | Status |
+|---|---|---|
+| P5-1 | Production wake listener (energy gate, pre-roll, onset-relative timing) + `WakeWordDecision` rule as a pure, unit-tested class | ☑ |
+| P5-2 | Microphone arbitration: pause wake word during STT and TTS (FR-WAKE-04, 05) | ☑ |
+| P5-3 | Provisional wake: open STT; if no speech follows, return to idle silently | ☑ |
+| P5-4 | Validation and tuning on audio the rule has never seen; fallback "Salut Bello" if needed | ◐ |
+| P5-5 | Sensitivity and enable/disable settings (FR-WAKE-02, 03) | ☑ |
 
 **Done when:** in the real home, detection ≥ 80 % and false wakes ≤ 1 / hour; idle CPU with wake word ≤ 35 %.
+
+**Where it stands (2026-09-18):** built, tuned and measured on the tablet against material the rule
+had never seen — four synthetic voices it was not designed on, and that morning's news read aloud.
+The remaining ◐ is the part no laptop speaker can settle: real voices, in the room where it will
+live, with the television on. See "Inputs needed from the user".
+
+| Check | Result |
+|---|---|
+| Detection, played across the room | **14–16 of 20 (70–80 %)** — three runs of the same twenty utterances at the same settings gave 15, 16 (scored from the candidates) and 14. It sits *on* the 80 % target, not above it: the misses are confidences just under the threshold, 0.55–0.68 |
+| False wakes | **0 in 21.4 min** of continuous French (that day's headlines and random articles, three voices) — the spike measured 4.3 / hour |
+| CPU, non-stop speech | **19 %** (budget 35 %); the spike's own combined figure was 24 % |
+| CPU and memory, quiet room | **7–9 %** and **≈175 MB** with the wake word listening, against 6.6 % and 67 MB without it — the speech model is most of that memory (budget 35 % and 350 MB) |
+| Wake → listening face | microphone released in **128 ms**, Google recogniser ready **169 ms** later |
+| Wake decided after the word | **101–956 ms**, mostly ≈160 ms (NFR-PERF-01 wants ≤ 1 s) |
+| A false wake costs | a listening face for three seconds, then silence — no error, no provider call |
+| Settings | `scripts/wake.sh on/off/low/normal/high/status`; the status line is also on the debug overlay |
+| Tests | 114 JVM unit tests (12 new) |
+
+**Findings:**
+- **The spike's confidence threshold was the wrong knob, and far too tight.** Across a room a real
+  "Bello" comes back at 0.79–1.00, not the 0.99–1.00 of the spike's close trials, so `conf ≥ 0.99`
+  threw away three quarters of them. At 0.70 — the loudest false candidate inside the window
+  reached 0.62 — detection triples and no false wake appears.
+- **The start window was the right idea and survived new audio.** Every real "Bello" the tablet
+  heard started 0.13–0.26 s after the room got loud; the false ones sat past 1.5 s, deep in a
+  sentence. The far edge had to move to 0.60 s, because a breath or a chair can open the utterance
+  before the word does.
+- **Nothing is wrong with the model or the grammar: the room is the whole problem.** Fed the same
+  twenty files directly, the recogniser hears "bello" in **20/20** at 0.88–1.00. Adding decoy words
+  ("bellot", "bela") makes it worse by splitting the confidence — SP-03 found this too.
+- **The playback level is part of the instrument.** One run scored 0/20 for no other reason than
+  the Mac's output volume having dropped to 38; another scored 2/20 at 70 % and 15/20 at full
+  volume with the same build. `scripts/wake-test.sh` now sets the level itself and restores it.
+- **A wake word that keeps decoding is what a 2014 processor cannot afford.** Not aborting an
+  utterance that has not produced the keyword within 1.5 s doubled the cost of a talking room,
+  42 % CPU against 19 %.
 
 ### Phase 6 — Presence, night mode, settings ☐
 
@@ -269,14 +305,15 @@ Phase 5 can start after Phase 2 (needs mic arbitration with STT/TTS). Phase 6 ca
 |---|---|
 | ~~Before Phase 3~~ | ✅ Provided 2026-09-18: Gemini (AI Studio) and Groq keys, in `config/bello.local.json` |
 | Phase 1 (optional) | Face design direction, or keep the SP-06 placeholder |
-| **Phase 5 (needed next)** | A few evenings with the tablet where it will live, TV or radio on, and real "Bello" utterances at several distances — this is what decides whether the wake word can meet its false-wake target |
+| **Phase 5 (needed to close it)** | A few evenings with the tablet where it will live, TV or radio on, and real "Bello" utterances at several distances. Everything else is built and tuned; what synthetic voices from a laptop speaker cannot tell us is how a real voice scores in that room. Run `scripts/wake-test.sh score` afterwards and the thresholds follow from the numbers |
 | Phase 7 | Smart plug or charging schedule decision |
 
 ## 6. Key risks carried from the spikes
 
 | Risk | Plan |
 |---|---|
-| Wake word false wakes above target (4.3 / h in loud speech) | Provisional wake (P5-3), start-window rule validation (P5-4), two-word fallback |
+| Wake word false wakes above target (4.3 / h in the spike) | Largely answered: **0 in 21.4 min** of continuous French once the start window and isolation were enforced, and a false wake is now provisional — a listening face, then silence. The two-word "Salut Bello" fallback stays in reserve for the real room |
+| Wake word misses a real call (the new risk) | Detection is bounded by the room, not the rule: the same audio scores 20/20 fed directly and 2/20 through a speaker at half volume. Sensitivity is a setting, and the tap never goes away |
 | Gemini Web breaks or hangs | Disabled by default, watchdog reload, never the only provider |
 | Vosk patched native lib is fragile | Keep shim + patch documented and scripted; pin Vosk 0.3.75 |
 | Old system CA store | All HTTPS through `HttpClients` with bundled CA; WebView only for local assets and Gemini |

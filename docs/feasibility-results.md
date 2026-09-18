@@ -89,6 +89,42 @@ Production script: `app/src/main/assets/gemini/gemini.js` (can be replaced on th
 - Tap-to-talk always available; wake word sensitivity configurable; wake word auto-paused while the assistant speaks.
 - Fallback option if false wakes remain too frequent in the real home: a two-word phrase (e.g. "Salut Bello").
 
+**What Phase 5 added (2026-09-18).** The rule above was carried into the app and then measured
+against material it had never seen: twenty utterances in four macOS voices the spike never used,
+and twenty-one minutes of that morning's headlines and random Wikipedia articles read aloud in
+three others. Two of the three numbers changed.
+
+| | SP-03 | Production, new audio |
+|---|---|---|
+| Confidence threshold | `conf ≥ 0.99` | **`conf ≥ 0.70`** |
+| Start window after onset | [0.10, 0.35] s (unvalidated) | **[0.10, 0.60] s** (validated) |
+| Isolation | no word within 0.5 s | unchanged |
+| Detection | 26/26, close trials | **14–16 of 20 (70–80 %)** across a room, varying run to run |
+| False wakes | 2 in 27.9 min (4.3 / h) | **0 in 21.4 min** |
+| CPU, continuous speech | 17 % | 19 % (whole app, face included) |
+
+- **The threshold was the wrong knob and far too tight.** Across a room a real "Bello" comes back
+  at 0.79–1.00, not the 0.99–1.00 of the spike's louder trials; 0.99 discarded three quarters of
+  them. The loudest false candidate that fell inside the window reached 0.62.
+- **The start window held**, which is what SP-03 asked to be checked on new audio: every real
+  "Bello" started 0.13–0.26 s after the room got loud, every false one past 1.5 s. Its far edge
+  moved to 0.60 s because an utterance can open with a breath or a chair before the word.
+- **The model and the grammar were never the problem.** Fed the same twenty files directly, the
+  recogniser hears "bello" in 20/20 at 0.88–1.00 — the losses are entirely the room. Decoy
+  grammars were tried again and again made it worse, splitting the confidence across "bellot" and
+  "bela".
+- **The level of the test is part of the test.** The same build and the same files scored 2/20 at
+  70 % speaker volume, 15/20 at full volume, and 0/20 on a run where the Mac's volume had silently
+  dropped to 38. `scripts/wake-test.sh` now sets and restores the level itself.
+- **A wake word must stop decoding a room that is only talking to itself.** Continuing past 1.5 s
+  when the keyword has not appeared cost 42 % CPU instead of 19 %.
+- **The same twenty files, the same settings, three runs: 15, 16, 14.** Detection over the air is
+  not a fixed number but a distribution, and this one straddles the 80 % target. The misses are
+  confidences just below the threshold (0.55–0.68), so the room, the distance and the voice decide
+  it — which is the argument for measuring in the room that matters.
+- Still open, and not answerable from a laptop speaker: **real voices at 0.5–2 m with the
+  television on**, which is what the acceptance figure means.
+
 ### Getting Vosk to run on Android 5
 
 1. **Native library:** every `vosk-android` release (0.3.32 → 0.3.75) references `stdin`/`stdout`/`stderr`, which API 21 bionic does not export → `dlopen failed: cannot locate symbol "stderr"`.

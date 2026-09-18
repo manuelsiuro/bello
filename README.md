@@ -4,7 +4,7 @@ An always-on, French-speaking voice assistant with a Minion face, running on a *
 (2014, Android 5.0.2)** that would otherwise be in a drawer. Ask out loud or type; it answers out
 loud and on screen. Running cost: **zero** — free API tiers only, and a key-free fallback.
 
-![state](https://img.shields.io/badge/phases%200--6-done-brightgreen) ![device](https://img.shields.io/badge/Android-5.0.2%20(API%2021)-blue)
+![state](https://img.shields.io/badge/phases%200--7-built-brightgreen) ![criteria](https://img.shields.io/badge/acceptance-11%2F12-brightgreen) ![device](https://img.shields.io/badge/Android-5.0.2%20(API%2021)-blue)
 
 ## What works today
 
@@ -43,7 +43,9 @@ loud and on screen. Running cost: **zero** — free API tiers only, and a key-fr
   word, the voice, the night hours, the camera and four test buttons. The whole configuration
   exports to one JSON file, which you can edit on a computer and push back — with the API keys
   masked, so the file is safe to keep or share.
-- **A face that costs almost nothing.** HTML/CSS, ~6 % CPU idle and ~67 MB on a 2014 tablet.
+- **It costs little to leave running.** The face alone is ~6 % CPU and ~67 MB; everything at once —
+  face, wake word listening, camera watching — is 12–16 % and ~167 MB on a 2014 tablet, against a
+  budget of 35 % and 350 MB.
 
 Eleven of the twelve acceptance criteria pass on the tablet; the twelfth is a seven-day unattended
 run, currently under way. See the [implementation plan](docs/implementation-plan.md).
@@ -77,6 +79,11 @@ scripts/selfcheck.sh      # TLS, speech model, providers
 
 Then press Home on the tablet and choose Bello → "Always" to make it the home screen.
 
+The rest of `scripts/` drives it from the Mac: `ask.sh` to ask a question, `wake.sh` and
+`wake-live.sh` for the wake word, `night.sh` and `presence.sh` for the night and the camera,
+`settings.sh` for the whole configuration as one file, `perf.sh` and `soak.sh` for how it is
+holding up, `pull-logs.sh` for the log.
+
 To give it API keys, copy `config/bello.example.json` to `config/bello.local.json` (git-ignored),
 paste your free keys from [AI Studio](https://aistudio.google.com/apikey) and
 [Groq](https://console.groq.com/keys), and run `scripts/push-config.sh`. **No key ever enters this
@@ -108,6 +115,8 @@ A few things this project had to work around on Android 5, written up in the doc
 - Listening for a wake word all day is affordable only if the recogniser is fed sound and not
   silence, and if it stops decoding a sentence as soon as the word is not in it: 19 % of a 2014
   processor instead of 42 % while a room talks.
+- On a device nobody looks at, a crash that happens *at startup* is not a crash but a loop: the
+  restart has to back off, or the tablet spends the night restarting itself thirty times a minute.
 - Free services fail in ordinary ways that are easy to forget: model names get retired and answer
   404 forever, a weather API returns 503 for one request, and a speech recognizer reports an error
   for the cancellation you asked for.

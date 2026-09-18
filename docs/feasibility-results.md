@@ -206,8 +206,8 @@ Endpoints: Gemini API, Groq, Mistral, Cerebras, OpenRouter, Anthropic, Open-Mete
 | FR-STT-01 | Confirmed: Google recognizer is primary STT. |
 | FR-GWEB-* | Add: new chat per question via confirm dialog; watchdog reload on no first text in ~20 s; text extraction rules above. Keep provider disabled by default but viable. |
 | FR-WAKE-01 | Vosk requires the `libstdiofix` shim + patched `libvosk.so` + core library desugaring; use the energy-gated listener, not `SpeechService`. |
-| FR-WAKE / R-07 | False-wake target not yet met; add provisional-wake behaviour and further validation with real audio. |
+| FR-WAKE / R-07 | ✅ Settled in Phase 5, above: the threshold was the wrong knob (0.70, not 0.99), the start window held on new audio, and false wakes went from 4.3 / h to **0 in 21.4 min**. A wake is provisional, so a wrong one costs a listening face and nothing else. |
 | AD-04 / NFR-SEC-01 | Bundled CA is required today (Let's Encrypt sites already fail on the system store). |
 | FR-FACE-08 | Add: idle face must avoid continuous CSS/rAF loops (blink timer, per-minute clock). |
 | FR-PRES-01 | Use grayscale Y-plane fast path every 2 s (or hardware detection); frontal faces only. |
-| NFR-PERF-04/05 | Measured full stack (wake + face + camera): ≈24 % CPU, ≈170 MB, ≈31 °C — within targets; Gemini Web adds ≈220 MB while active. |
+| NFR-PERF-04/05 | Measured full stack (wake + face + camera): ≈24 % CPU, ≈170 MB, ≈31 °C — within targets; Gemini Web adds ≈220 MB while active. Production, same three running: **12–16 % and ≈167 MB**. |

@@ -378,7 +378,7 @@ Phase 5 can start after Phase 2 (needs mic arbitration with STT/TTS). Phase 6 ca
 | ~~Before Phase 3~~ | ✅ Provided 2026-09-18: Gemini (AI Studio) and Groq keys, in `config/bello.local.json` |
 | Phase 1 (optional) | Face design direction, or keep the SP-06 placeholder |
 | Phase 5 (optional now; the phase was accepted without it) | Three minutes of your own voice — `scripts/wake-live.sh calls 10` prompts you to say "Bello" ten times and prints the detection rate — and, when convenient, `scripts/wake-live.sh room 30` with the television on for the false-wake half. Nothing is played from the Mac; the tablet listens to the room it lives in, and `scripts/wake-test.sh score` then picks thresholds from what it heard |
-| Phase 7 | Smart plug or charging schedule decision |
+| Phase 7 (open) | Whether to put the tablet on a mains timer or smart plug, and on what schedule — a ten-year-old battery held at 100 % all day is the one thing that will end this project early. The options are written up in [device-galaxy-tab4.md](device-galaxy-tab4.md#keeping-the-battery-alive-nfr-hw-01), and every performance sample now records the battery level so a week of running shows whether a schedule works |
 
 ## 6. Key risks carried from the spikes
 
@@ -386,7 +386,37 @@ Phase 5 can start after Phase 2 (needs mic arbitration with STT/TTS). Phase 6 ca
 |---|---|
 | Wake word false wakes above target (4.3 / h in the spike) | Largely answered: **0 in 21.4 min** of continuous French once the start window and isolation were enforced, and a false wake is now provisional — a listening face, then silence. The two-word "Salut Bello" fallback stays in reserve for the real room |
 | Wake word misses a real call (the new risk) | Detection is bounded by the room, not the rule: the same audio scores 20/20 fed directly and 2/20 through a speaker at half volume. Sensitivity is a setting, and the tap never goes away |
-| Gemini Web breaks or hangs | Disabled by default, watchdog reload, never the only provider |
+| Gemini Web breaks or hangs | Never the only provider and never the first: it is skipped for 30 minutes as soon as its page cannot be driven, and the page is released 90 s after an answer |
 | Vosk patched native lib is fragile | Keep shim + patch documented and scripted; pin Vosk 0.3.75 |
 | Old system CA store | All HTTPS through `HttpClients` with bundled CA; WebView only for local assets and Gemini |
-| CPU/heat on 2014 hardware | Budgets from spikes enforced; measured each phase |
+| CPU/heat on 2014 hardware | Budgets from spikes enforced and measured each phase; the finished stack sits at 12–16 % CPU and 33–34 °C against budgets of 35 % and 42 °C |
+| The battery, held at 100 % for years | The one risk nothing in the code can fix: see "Inputs needed from the user" |
+
+## 7. Where it stands (2026-09-18)
+
+Every phase is built and running on the tablet. Eleven of the twelve acceptance criteria pass; the
+twelfth is the seven-day unattended run, started 2026-09-18 11:44 (`scripts/soak.sh report`).
+
+| What | Measured on the device |
+|---|---|
+| Answering | Gemini 1.2–2.1 s, Groq 0.6 s, fallback on quota or failure, key-free Gemini Web behind them |
+| Doing it itself | the clock in 19–34 ms, timers and alarms, weather in ~1 s, headlines, memory across restarts |
+| Hearing its name | 14–16 of 20 calls across a room, 0 false wakes in 21.4 min of continuous French |
+| Cost, everything running | 12–16 % CPU, 33–34 °C, ~167 MB (budgets: 35 %, 42 °C, 350 MB) |
+| Cost, face alone | 6 % CPU, 67 MB |
+| Recovering | crash → back in ~1 s with a backing-off restart; reboot → face 4 s after `BOOT_COMPLETED`, alarms re-armed; network gone → local tools keep working, answers in 6 ms, resumes by itself |
+| Tests | 135 JVM unit tests |
+
+**Still open, and recorded as such:**
+
+1. **The soak** — nothing to do but leave it alone for a week.
+2. **The wake word with a real voice.** Everything measured used synthetic French voices through a
+   speaker; `scripts/wake-live.sh calls 10` measures the real thing in three minutes, and
+   `room 30` re-checks false wakes with the television on — worth doing because the distance
+   compensation was added after the false-wake measurement.
+3. **The battery**, which is a decision rather than a task: see "Inputs needed from the user".
+
+**If someone picks this up later**, the two habits that caught the most problems were re-running
+the acceptance criteria against the build in hand rather than trusting the last phase's result —
+two real bugs surfaced that way on the last day — and making the device log enough that a
+measurement could be scored afterwards instead of guessed at.

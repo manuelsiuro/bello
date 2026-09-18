@@ -12,14 +12,16 @@ import com.bello.assistant.tools.Alarms
 import com.bello.assistant.tools.News
 import com.bello.assistant.tools.PagePublisher
 import com.bello.assistant.tools.Schedule
+import com.bello.assistant.tools.TvBox
+import com.bello.assistant.tools.TvBoxProtocol
 import com.bello.assistant.tools.Weather
 import com.bello.assistant.ui.FaceState
 import com.bello.assistant.voice.SpeechText
 
 /**
  * Decides who answers (FR-TOOL-08): Bello itself for the clock, timers, alarms, the weather, the
- * news and its own memory — a provider for everything else, with the conversation so far and the
- * remembered facts attached (FR-MEM-01/03). When an answer is really a page, it offers the
+ * news, the television and its own memory — a provider for everything else, with the conversation
+ * so far and the remembered facts attached (FR-MEM-01/03). When an answer is really a page, it offers the
  * details on the phone and waits for a yes (FR-PAGE-01/02).
  */
 class Router(
@@ -52,6 +54,7 @@ class Router(
     private val session = SessionMemory(config.maxTurns, config.sessionIdleMs)
     private val weather = Weather(app)
     private val news = News(app)
+    private val tv: TvBox? = config.tvBox?.let { TvBox(app, it.host, it.port) }
 
     /** The offer the next utterance may be answering. Lost with the Router on a config reload. */
     @Volatile private var offer: PageOffer.Offer? = null
@@ -71,7 +74,7 @@ class Router(
                 YesNo.Reply.OTHER -> FileLog.i(TAG, "PAGE_DROPPED reason=other")
             }
         }
-        val intent = Intents.match(forIntent)
+        val intent = Intents.match(forIntent, config.tvBox?.channels ?: emptyMap())
         if (intent != Intent.None) {
             FileLog.i(TAG, "intent=${intent.javaClass.simpleName}")
             return handle(intent, now)
@@ -232,7 +235,39 @@ class Router(
         }
         is Intent.ListMemories -> say(ToolReplies.memories(facts.all()))
 
+        is Intent.TvPower, is Intent.TvChannel, is Intent.TvChannelStep, is Intent.TvVolume,
+        is Intent.TvMute, is Intent.TvKey, Intent.TvStatus -> television(intent)
+
         is Intent.None -> say("")
+    }
+
+    /**
+     * The decoder is on the LAN, so "offline" is not the question here; "the box did not answer"
+     * is. Every reply is spoken short: the television is already making the noise.
+     */
+    private fun television(intent: Intent): Responder.Answer {
+        val box = tv ?: return offline(ToolReplies.tvNotConfigured())
+        val keys = config.tvBox ?: return offline(ToolReplies.tvNotConfigured())
+        val done: String? = when (intent) {
+            is Intent.TvStatus -> box.isOn()?.let { ToolReplies.tvStatus(it) }
+            is Intent.TvPower -> box.switchPower(intent.on)?.let {
+                ToolReplies.tvPower(intent.on, already = it == TvBox.Switch.ALREADY)
+            }
+            is Intent.TvChannel -> {
+                val digits = TvBoxProtocol.digits(intent.number) + (if (keys.okAfterDigits) listOf(TvBoxProtocol.OK) else emptyList())
+                if (box.press(digits)) ToolReplies.tvChannel(intent.number, intent.name) else null
+            }
+            is Intent.TvChannelStep ->
+                if (box.press(if (intent.up) TvBoxProtocol.CHANNEL_UP else TvBoxProtocol.CHANNEL_DOWN)) ToolReplies.tvChannelStep(intent.up) else null
+            is Intent.TvVolume -> {
+                val key = if (intent.up) TvBoxProtocol.VOL_UP else TvBoxProtocol.VOL_DOWN
+                if (box.press(List(intent.steps) { key })) ToolReplies.tvVolume(intent.up) else null
+            }
+            is Intent.TvMute -> if (box.press(TvBoxProtocol.MUTE)) ToolReplies.tvMute(intent.silence) else null
+            is Intent.TvKey -> if (box.press(intent.key)) ToolReplies.tvKey(intent.key) else null
+            else -> null
+        }
+        return if (done == null) offline(ToolReplies.tvUnreachable()) else say(done, FaceState.HAPPY)
     }
 
     /** Headlines are facts; turning them into two or three spoken sentences is a provider's job. */

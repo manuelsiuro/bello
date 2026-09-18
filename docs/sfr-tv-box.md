@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Done — protocol verified on the box in the house; key names beyond `mute` await ten minutes in front of the television (§7) |
+| Status | Built (Phase 9, 2026-09-18) — protocol verified on the box, the tool is on the tablet; key names beyond `mute` await ten minutes in front of the television (§7) |
 | Date | 2026-09-18 |
 | Branch | `research/sfr-tv-box` |
 | Question | Can Bello drive the SFR TV decoder the way the "SFR TV" Android app's remote does, and how? |
@@ -222,7 +222,7 @@ Bluetooth pairing with keys 7 + 9). CEC carries power and volume, not channels, 
 television that obeys it — so whether « allume la télé » lights the screen depends on the CEC
 setting in the box menu, which is one of the things to check with the television on (§7).
 
-## 5. Implementing it in this codebase
+## 5. Implementing it in this codebase — done as written, Phase 9
 
 - **`tools/TvBox.kt`** — an OkHttp `WebSocket` (OkHttp 4.12, already in the app; `ws://` needs
   no TLS and none of the Conscrypt/CA machinery) opened on first use and kept, reopened on failure;

@@ -127,6 +127,39 @@ object ToolReplies {
             titles.joinToString("\n") { "- $it" } +
             "\n\nRésume-les en trois phrases maximum, à lire à voix haute, sans liste et sans citer de source."
 
+    // --- The television (docs/sfr-tv-box.md) ---------------------------------------------------
+
+    fun tvPower(on: Boolean, already: Boolean): String = when {
+        on && already -> "La télé est déjà allumée."
+        on -> "J'allume la télé."
+        already -> "La télé est déjà éteinte."
+        else -> "J'éteins la télé."
+    }
+
+    fun tvChannel(number: Int, name: String?): String =
+        "Je mets la $number" + (name?.let { ", $it" } ?: "") + "."
+
+    fun tvChannelStep(up: Boolean): String = if (up) "Chaîne suivante." else "Chaîne précédente."
+
+    fun tvVolume(up: Boolean): String = if (up) "Je monte le son." else "Je baisse le son."
+
+    fun tvMute(silence: Boolean): String = if (silence) "Chut." else "Et voilà le son."
+
+    fun tvKey(key: String): String = when (key) {
+        "playPause" -> "Voilà."
+        "stop" -> "Stop."
+        "back" -> "Retour."
+        "home" -> "Le menu."
+        "record" -> "J'enregistre."
+        else -> "Voilà."
+    }
+
+    fun tvStatus(on: Boolean): String = if (on) "La télé est allumée." else "La télé est éteinte."
+
+    fun tvUnreachable(): String = "Je n'arrive pas à joindre le décodeur télé."
+
+    fun tvNotConfigured(): String = "Je n'ai pas de télé à commander. Il faut l'ajouter dans la configuration."
+
     // --- A page for the phone (FR-PAGE) ---------------------------------------------------------
 
     fun pageOffer(): String = "Tu veux le détail sur ton téléphone ? Dis oui et je t'affiche un code QR."

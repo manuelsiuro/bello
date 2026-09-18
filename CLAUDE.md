@@ -47,6 +47,7 @@ scripts/presence.sh on|off|status|check     # the camera: is it seeing anybody, 
 scripts/settings.sh export|import|open|status   # the whole configuration as one file
 scripts/soak.sh start|report|stop           # the unattended run: crashes, network, CPU, heat, battery
 scripts/page.sh demo|status|off|open|ask    # the details on the phone: a page served by the tablet, a QR code on the face
+scripts/tv.sh status|on|off|key|channel|ask  # the SFR TV decoder, straight from the Mac or through Bello
 ```
 
 API keys: copy `config/bello.example.json` to `config/bello.local.json` (git-ignored), add your free
@@ -99,6 +100,11 @@ Home screen: after installing, press Home on the tablet and choose Bello → "Al
   the LAN (GET only, memory only, port `pagePort`, open only while a page exists), `tools/QrCode`
   (ZXing core) gives the face the modules to draw. The card is never hidden by the next turn — a tap
   on it, "stop", a newer page or three minutes; the screen brightness has one rule, `brightnessFor()`.
+- The television: `tools/TvBox` drives the SFR decoder (an STB8, `docs/sfr-tv-box.md`) over a plain
+  WebSocket on port 7682 — no key, no pairing, one connection per command. The box answers `OK` to
+  anything, so a key name is only ever proven on the screen. Intents come from `assistant/Intents`
+  with the channel table of `config.json` (`tvBox.channels`, TNT numbering by default); "stop la
+  télé" is the television, "stop" alone is still Bello.
 - Memory and schedules are one small SQLite file (`memory/BelloDb`): facts survive restarts, timers
   and alarms are put back into `AlarmManager` after a reboot.
 - Wake word: `voice/WakeWord` feeds Vosk only when the room makes a sound, and `voice/WakeWordDecision`

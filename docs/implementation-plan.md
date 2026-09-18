@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Phases 0–6 done · Phase 7: 11 of 12 criteria pass, the 7-day soak restarted 2026-09-18 15:39 by the Phase 8 install · Phase 8 (the details on the phone) built and verified on the tablet |
+| Status | Phases 0–6 done · Phase 7: 11 of 12 criteria pass, the 7-day soak restarted by the Phase 9 install · Phase 8 (the details on the phone) built and verified · Phase 9 (the television) built, keys to be checked on the screen |
 | Date | 2026-09-18 |
 | Inputs | [requirements.md](requirements.md) · [feasibility-results.md](feasibility-results.md) · [device-galaxy-tab4.md](device-galaxy-tab4.md) |
 | Target | Galaxy Tab 4 SM-T530, Android 5.0.2 (API 21), `armeabi-v7a`, serial `e3572b180497ec75` |
@@ -436,6 +436,23 @@ P0 ─▶ P1 ─▶ P2 ─▶ P3 ─▶ P4 ─▶ P7
 
 Phase 5 can start after Phase 2 (needs mic arbitration with STT/TTS). Phase 6 can run in parallel with Phases 3–5 after Phase 1.
 Phase 8 needs Phase 4 (the Router and the gateway) and Phase 1 (the face); it was added after Phase 7 and does not gate it.
+
+### Phase 9 — The television
+
+The SFR TV decoder in the house, driven the way the SFR TV app drives it: [sfr-tv-box.md](sfr-tv-box.md).
+
+| # | Task | Done |
+|---|---|---|
+| P9-1 | `tools/TvBox`: the STB8 protocol (pure, tested on the box's real replies) and a client that opens one WebSocket per command | ☑ |
+| P9-2 | `assistant/Intents`: power, channel by number, by number word and by name, next/previous, volume, mute, pause and the other keys, status — in French, with the channel table from `config.json` | ☑ |
+| P9-3 | `assistant/ToolReplies`: the short spoken confirmations; `Router`: the branch, « je n'arrive pas à joindre le décodeur » when the box does not answer | ☑ |
+| P9-4 | `core/AppConfig`: `tvBox` (host `stb`, port 7682, `channels` = TNT numbering since June 2025, `okAfterDigits`, `enabled`) | ☑ |
+| P9-5 | `scripts/tv.sh`: the box from the Mac (`status`, `on`, `off`, `key`, `channel`) and through Bello (`ask`) | ☑ |
+| P9-6 | Every key name checked on the television, `power` from standby with and without CEC, channel entry with two digits | ☐ needs someone in front of the television |
+
+**Done when:** « la télé est allumée ? » is answered from the box's state; « mets la 3 » changes the channel on the screen; « éteins la télé » puts the decoder in standby and « allume la télé » brings it back, each within 1.5 s (NFR-PERF-03).
+
+**Result (2026-09-18):** built, 186 JVM unit tests pass (174 before), installed on the tablet. The status question is answered from the box in the room; the keys wait for the television to be watched (P9-6) — the box acknowledges any key name, so only the screen can confirm them.
 
 ## 5. Inputs needed from the user
 

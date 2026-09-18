@@ -46,6 +46,7 @@ scripts/night.sh on|off|auto                # night mode now, without waiting fo
 scripts/presence.sh on|off|status|check     # the camera: is it seeing anybody, and what it sees
 scripts/settings.sh export|import|open|status   # the whole configuration as one file
 scripts/soak.sh start|report|stop           # the unattended run: crashes, network, CPU, heat, battery
+scripts/page.sh demo|status|off|open|ask    # the details on the phone: a page served by the tablet, a QR code on the face
 ```
 
 API keys: copy `config/bello.example.json` to `config/bello.local.json` (git-ignored), add your free
@@ -58,6 +59,7 @@ Inspect the face page from the Mac (debug builds):
 PID=$(adb -s e3572b180497ec75 shell ps | grep com.bello.assistant | awk '{print $2}' | tr -d '\r' | head -1)
 adb -s e3572b180497ec75 forward tcp:9222 localabstract:webview_devtools_remote_$PID
 python3 spikes/tools/cdp.py 'bello.getState()'
+python3 spikes/tools/cdp.py 'bello.isQrShown()'
 ```
 
 Home screen: after installing, press Home on the tablet and choose Bello → "Always" to make it the launcher.
@@ -88,6 +90,15 @@ Home screen: after installing, press Home on the tablet and choose Bello → "Al
   alarms, weather, news and memory locally; `assistant/Router` sends everything else to the gateway
   with the session history and the remembered facts. Spoken replies live in `assistant/ToolReplies`
   (pure, unit tested) — never build a sentence to be spoken inline.
+- The details on the phone: after an answer that is really a recipe, a how-to or a list (the model
+  ends it with `[détails]`, `assistant/PageOffer` is the safety net on the question), the Router
+  appends the offer and waits 90 s for a yes (`assistant/YesNo`, pure). On "oui" it answers at once
+  and writes the page on its own thread through `llm/AskOptions` (own system prompt, more tokens,
+  no session, no facts); `tools/PagePublisher` (owned by `BelloApp`, survives a reload) renders
+  `assets/page/page.html` (a `page.html` in the files dir overrides it), `net/PageServer` serves it on
+  the LAN (GET only, memory only, port `pagePort`, open only while a page exists), `tools/QrCode`
+  (ZXing core) gives the face the modules to draw. The card is never hidden by the next turn — a tap
+  on it, "stop", a newer page or three minutes; the screen brightness has one rule, `brightnessFor()`.
 - Memory and schedules are one small SQLite file (`memory/BelloDb`): facts survive restarts, timers
   and alarms are put back into `AlarmManager` after a reboot.
 - Wake word: `voice/WakeWord` feeds Vosk only when the room makes a sound, and `voice/WakeWordDecision`

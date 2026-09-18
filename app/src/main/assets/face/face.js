@@ -9,6 +9,7 @@
   var BLINK_MIN_MS = 4500, BLINK_SPREAD_MS = 4500;
   var GLANCE_MIN_MS = 18000, GLANCE_SPREAD_MS = 17000, GLANCE_HOLD_MS = 1400;
   var SUBTITLE_TIMEOUT_MS = 12000;
+  var QR_TIMEOUT_MS = 185000;   // a safety net: Kotlin hides the card at 180 s
   var LONG_PRESS_MS = 2000;
 
   var body = document.body;
@@ -20,10 +21,15 @@
   var clockEl = document.getElementById('clock');
   var countdownEl = document.getElementById('countdown');
   var offlineEl = document.getElementById('offline');
+  var qr = document.getElementById('qr');
+  var qrCanvas = document.getElementById('qrCanvas');
+  var qrCaption = document.getElementById('qrCaption');
+  var qrUrl = document.getElementById('qrUrl');
 
   var state = 'idle';
   var emotion = '';
   var subtitleTimer = null;
+  var qrTimer = null;
 
   function native(name, arg) {
     try {
@@ -101,6 +107,42 @@
 
   function clearSubtitles() { userEl.textContent = ''; answerEl.textContent = ''; }
 
+  // --- A page for the phone (FR-PAGE-05): the QR code is painted once, then nothing moves ----
+  function drawQr(rows) {
+    var n = rows.length;
+    if (!n) return;
+    var dpr = window.devicePixelRatio || 1;
+    var px = Math.round((qrCanvas.clientWidth || 304) * dpr);
+    qrCanvas.width = px;
+    qrCanvas.height = px;
+    var ctx = qrCanvas.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, px, px);
+    // Four modules of quiet zone on each side; the rest is split evenly between the modules.
+    var m = Math.floor(px / (n + 8));
+    var off = Math.floor((px - m * n) / 2);
+    ctx.fillStyle = '#000';
+    for (var y = 0; y < n; y++) {
+      for (var x = 0; x < n; x++) {
+        if (rows[y].charAt(x) === '1') ctx.fillRect(off + x * m, off + y * m, m, m);
+      }
+    }
+  }
+  function showQr(rowsText, caption, url) {
+    var rows = String(rowsText || '').split('\n').filter(function (r) { return r.length > 0; });
+    drawQr(rows);
+    qrCaption.textContent = caption || '';
+    qrUrl.textContent = url || '';
+    qr.className = 'on';
+    clearTimeout(qrTimer);
+    qrTimer = setTimeout(hideQr, QR_TIMEOUT_MS);
+  }
+  function hideQr() {
+    clearTimeout(qrTimer);
+    qrTimer = null;
+    qr.className = '';
+  }
+
   // --- Touch: tap and long press ---------------------------------------------------------------
   var pressTimer = null;
   var longPressed = false;
@@ -114,6 +156,14 @@
     clearTimeout(pressTimer);
     if (!longPressed) native('onTap');
   }
+  // A tap on the card dismisses it, and must not reach the face (that would start listening).
+  function qrTapped(e) {
+    e.stopPropagation();
+    if (e.type === 'touchend' || e.type === 'mouseup') { hideQr(); native('onQrHidden'); }
+  }
+  ['touchstart', 'touchend', 'touchcancel', 'mousedown', 'mouseup'].forEach(function (type) {
+    qr.addEventListener(type, qrTapped);
+  });
   document.addEventListener('touchstart', pressStart, { passive: false });
   document.addEventListener('touchend', pressEnd);
   document.addEventListener('touchcancel', function () { clearTimeout(pressTimer); });
@@ -128,8 +178,11 @@
     showCountdown: showCountdown,
     showOffline: showOffline,
     clearSubtitles: clearSubtitles,
+    showQr: showQr,
+    hideQr: hideQr,
     getState: function () { return state + (emotion ? '+' + emotion : ''); },
-    isOffline: function () { return offlineEl.className === 'on'; }
+    isOffline: function () { return offlineEl.className === 'on'; },
+    isQrShown: function () { return qr.className === 'on'; }
   };
 
   tickClock();

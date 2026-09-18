@@ -20,6 +20,7 @@ import android.widget.TextView
 import com.bello.assistant.assistant.Assistant
 import com.bello.assistant.assistant.ConversationPolicy
 import com.bello.assistant.assistant.Router
+import com.bello.assistant.assistant.ToolReplies
 import com.bello.assistant.assistant.Turn
 import com.bello.assistant.core.AppConfig
 import com.bello.assistant.core.ConfigIo
@@ -28,6 +29,8 @@ import com.bello.assistant.core.FileLog
 import com.bello.assistant.core.NightMode
 import com.bello.assistant.core.Prefs
 import com.bello.assistant.net.Connectivity
+import com.bello.assistant.net.LocalAddress
+import com.bello.assistant.tools.PageHtml
 import com.bello.assistant.presence.Presence
 import com.bello.assistant.BelloApp
 import com.bello.assistant.llm.LlmGateway
@@ -38,7 +41,9 @@ import com.bello.assistant.service.FaceVisibility
  * Full-screen, always-on face (FR-ON-01/02/04, FR-FACE-*), with a text input bar (FR-CONV-03).
  *
  * adb extras (see scripts/): `selfcheck` (bool), `state` (face state), `text` (typed question),
- * `kiosk` ("on"/"off"), `overlay` ("on"/"off"), `llm` ("status"/"reload").
+ * `speak`, `tap` (bool), `voice` ("pitch,rate"), `kiosk` ("on"/"off"), `overlay` ("on"/"off"),
+ * `llm` ("status"/"reload"), `wake`, `presence`, `night`, `settings`, `page` ("demo"/"status"/"off"),
+ * `ring` (schedule id), `crash` (bool, debug builds).
  */
 class MainActivity : Activity(), FaceView.Listener {
     private lateinit var face: FaceView
@@ -57,6 +62,9 @@ class MainActivity : Activity(), FaceView.Listener {
     private var nightOverride: Boolean? = null
     private var night = false
     private lateinit var network: Connectivity
+    /** While a page's QR code is on the face, in elapsed-realtime ms; 0 when none (FR-PAGE-05). */
+    private var pageShownUntil = 0L
+    private val hidePageRunnable = Runnable { hidePage("timeout") }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,7 +85,8 @@ class MainActivity : Activity(), FaceView.Listener {
             face.showOffline(!online)
             FileLog.i(TAG, "network=${if (online) "back" else "lost"}")
         }
-        router = Router(this, gateway, AppConfig.load(this), routerListener, isOnline = network::isOnline)
+        router = Router(this, gateway, AppConfig.load(this), routerListener, (application as BelloApp).pages(),
+            isOnline = network::isOnline, offersEnabled = { prefs.pageOffers })
         assistant = Assistant(this, face, router, isNight = { night })
         assistant.onTurnChanged = { onTurnChanged() }
         presence = Presence(this, prefs, presenceListener)
@@ -141,11 +150,14 @@ class MainActivity : Activity(), FaceView.Listener {
         if (inputBar.visibility == View.VISIBLE) toggleInput(false) else assistant.onTap()
     }
 
+    override fun onQrHidden() = hidePage("tap")
+
     override fun onDestroy() {
         presence.release()
         network.stop()
         ticker.removeCallbacks(nightWatch)
         ticker.removeCallbacks(countdown)
+        ticker.removeCallbacks(hidePageRunnable)
         assistant.release()
         gateway.attachWebHost(null)
         super.onDestroy()
@@ -163,6 +175,7 @@ class MainActivity : Activity(), FaceView.Listener {
         add("last=${gateway.lastSource ?: "—"} ${gateway.lastLatencyMs} ms")
         add(assistant.wakeStatus())
         add("${presence.status()} night=$night")
+        add("pages ${(application as BelloApp).pages().status()}")
         addAll(gateway.statusLines())
     }
 
@@ -173,10 +186,44 @@ class MainActivity : Activity(), FaceView.Listener {
         settingsView.open()
     }
 
-    /** Timers and alarms talk back to the conversation through here. */
+    /** Timers, alarms and pages talk back to the conversation through here. */
     private val routerListener = object : Router.Listener {
         override fun onSchedulesChanged() = refreshCountdown()
-        override fun onStopRequested() = assistant.stopRinging("voice")
+
+        override fun onStopRequested() {
+            assistant.stopRinging("voice")
+            hidePage("stop")
+        }
+
+        override fun onPageReady(url: String, qrRows: List<String>, caption: String, spoken: String) = runOnUiThread {
+            showPage(url, qrRows, caption)
+            assistant.announce(spoken, FaceState.HAPPY)
+        }
+
+        override fun onPageFailed(spoken: String) = runOnUiThread { assistant.announce(spoken, FaceState.SAD) }
+    }
+
+    // --- A page for the phone (FR-PAGE-05) --------------------------------------------------------
+
+    private fun pageShowing() = SystemClock.elapsedRealtime() < pageShownUntil
+
+    /** Main thread. The card stays a few minutes at full brightness; nothing else hides it early. */
+    private fun showPage(url: String, qrRows: List<String>, caption: String) {
+        ticker.removeCallbacks(hidePageRunnable)
+        face.showQr(qrRows, caption, url)
+        pageShownUntil = SystemClock.elapsedRealtime() + PAGE_SHOWN_MS
+        ticker.postDelayed(hidePageRunnable, PAGE_SHOWN_MS)
+        wake(brightnessFor())
+        FileLog.i(TAG, "PAGE_SHOWN url=$url")
+    }
+
+    private fun hidePage(reason: String) {
+        ticker.removeCallbacks(hidePageRunnable)
+        if (pageShownUntil == 0L) return
+        pageShownUntil = 0L
+        face.hideQr()
+        FileLog.i(TAG, "PAGE_HIDDEN reason=$reason")
+        applyNight()
     }
 
     /** The shortest running timer is shown under the clock and ticks every second (FR-TOOL-02). */
@@ -229,18 +276,22 @@ class MainActivity : Activity(), FaceView.Listener {
             // The camera sleeps with the house; the wake word does not (FR-PRES-03, FR-ON-06).
             if (night) presence.stop("night") else presence.start()
         }
-        // Busy means somebody is talking to it, and it should be readable while they do.
         val busy = assistant.currentTurn != Turn.IDLE
-        wake(if (night && !busy) prefs.nightBrightness else FULL_BRIGHTNESS)
+        wake(brightnessFor())
         if (night != wasNight || !busy) face.setState(ConversationPolicy.face(assistant.currentTurn, night))
     }
 
+    /** Brighten for the conversation, and let it fade back afterwards (FR-ON-06). */
     private fun onTurnChanged() {
-        if (!night) return
-        val busy = assistant.currentTurn != Turn.IDLE
-        // Brighten for the conversation, and let it fade back afterwards (FR-ON-06).
-        wake(if (busy) FULL_BRIGHTNESS else prefs.nightBrightness)
+        if (night) wake(brightnessFor())
     }
+
+    /**
+     * The one rule for the screen: dim only at night, when nobody is talking to Bello and no page
+     * is on show — a phone has to be able to read the code (FR-ON-06, FR-PAGE-05).
+     */
+    private fun brightnessFor(): Float =
+        if (night && assistant.currentTurn == Turn.IDLE && !pageShowing()) prefs.nightBrightness else FULL_BRIGHTNESS
 
     private fun wake(brightness: Float) {
         val params = window.attributes
@@ -313,7 +364,8 @@ class MainActivity : Activity(), FaceView.Listener {
         val fresh = (application as BelloApp).reloadGateway()
         gateway = fresh
         fresh.attachWebHost(root)
-        router = Router(this, fresh, AppConfig.load(this), routerListener, isOnline = network::isOnline)
+        router = Router(this, fresh, AppConfig.load(this), routerListener, (application as BelloApp).pages(),
+            isOnline = network::isOnline, offersEnabled = { prefs.pageOffers })
         assistant.setResponder(router)
         assistant.setVoiceParams(prefs.ttsPitch, prefs.ttsRate)
         assistant.wakeCommand(if (prefs.wakeEnabled) prefs.wakeSensitivity else "off")
@@ -379,6 +431,29 @@ class MainActivity : Activity(), FaceView.Listener {
                 }
                 command == "status" -> FileLog.i(TAG, "SETTINGS ${ConfigIo.settings(prefs)}")
                 else -> FileLog.w(TAG, "unknown settings command '$command'")
+            }
+        }
+        intent.getStringExtra(EXTRA_PAGE)?.let { command ->
+            val pages = (application as BelloApp).pages()
+            when (command) {
+                // The whole path without a provider: the built-in recipe, served and shown.
+                "demo" -> Thread({
+                    val host = pages.address() ?: "127.0.0.1"
+                    val page = pages.publish(PageHtml.SAMPLE_MARKDOWN, host)
+                    if (page == null) FileLog.w(TAG, "PAGE_DEMO failed")
+                    else runOnUiThread {
+                        showPage(page.url, page.qrRows, ToolReplies.qrCaption(page.title))
+                        assistant.announce(ToolReplies.pageReady(page.title), FaceState.HAPPY)
+                    }
+                }, "page-demo").start()
+                "status" -> Thread({
+                    FileLog.i(TAG, "PAGE_STATUS ${pages.status()} shown=${pageShowing()} wifi=${LocalAddress.wifiIpv4() ?: "-"}")
+                }, "page-status").start()
+                "off" -> {
+                    hidePage("command")
+                    Thread({ pages.stop() }, "page-off").start()
+                }
+                else -> FileLog.w(TAG, "unknown page command '$command'")
             }
         }
         intent.getStringExtra(EXTRA_TEXT)?.let { assistant.onUserText(it) }
@@ -494,7 +569,10 @@ class MainActivity : Activity(), FaceView.Listener {
         const val EXTRA_SETTINGS = "settings"
         const val EXTRA_NIGHT = "night"
         const val EXTRA_PRESENCE = "presence"
+        const val EXTRA_PAGE = "page"
         const val NIGHT_CHECK_MS = 60_000L
+        /** How long the QR code stays on the face: time to find the phone and scan (FR-PAGE-05). */
+        const val PAGE_SHOWN_MS = 180_000L
         /** Long enough for the camera to be handed back before it is asked for again. */
         const val PRESENCE_RESTART_MS = 700L
         /** BRIGHTNESS_OVERRIDE_NONE: back to whatever the system would do. */

@@ -123,4 +123,11 @@ class OpenAiCompatibleProviderTest {
         assertEquals(null, OpenAiParse.retryAfterMs(null))
         assertEquals(null, OpenAiParse.retryAfterMs("Wed, 21 Oct 2026 07:28:00 GMT"))
     }
+
+    @Test fun `an answer cut for lack of room is flagged`() {
+        assertEquals("length", OpenAiParse.finishReason("""{"choices":[{"finish_reason":"length","message":{"content":"x"}}]}"""))
+        assertEquals("stop", OpenAiParse.finishReason("""{"choices":[{"finish_reason":"stop","message":{"content":"x"}}]}"""))
+        assertEquals(null, OpenAiParse.finishReason("""{"choices":[{"message":{"content":"x"}}]}"""))
+        assertEquals(null, OpenAiParse.finishReason("not json"))
+    }
 }

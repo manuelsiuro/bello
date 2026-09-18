@@ -32,18 +32,26 @@ class LlmGateway(
     /**
      * @param history earlier turns of the session (FR-MEM-01)
      * @param extraSystem facts the user asked Bello to remember (FR-MEM-03), added to the persona
+     * @param options another author, more room or more time for this one call (FR-PAGE-03)
      */
-    fun ask(question: String, history: List<LlmMessage>, extraSystem: String): Responder.Answer {
+    fun ask(
+        question: String,
+        history: List<LlmMessage>,
+        extraSystem: String,
+        options: AskOptions = AskOptions(),
+    ): Responder.Answer {
         if (providers.isEmpty()) return Responder.Answer(noProvidersMessage(), isError = true, emotion = FaceState.CONFUSED)
-        val system = Persona.system(config.persona, nowLabel()) +
-            if (extraSystem.isBlank()) "" else "\n$extraSystem"
+        val persona = options.system ?: Persona.system(config.persona, nowLabel())
+        val system = persona + if (extraSystem.isBlank()) "" else "\n$extraSystem"
+        val timeoutMs = options.timeoutMs ?: config.timeoutMs
         val request = LlmRequest(
             system = system,
             messages = history + LlmMessage.user(question),
-            timeoutMs = config.timeoutMs,
+            timeoutMs = timeoutMs,
+            maxTokens = options.maxTokens,
         )
         val skipped = mutableListOf<String>()
-        val deadline = clock() + config.totalBudgetMs
+        val deadline = clock() + (options.budgetMs ?: config.totalBudgetMs)
         for (provider in providers) {
             val now = clock()
             if (now >= deadline) {
@@ -58,7 +66,7 @@ class LlmGateway(
                 skipped += "${provider.id} (not ready)"
                 continue
             }
-            val left = (deadline - clock()).coerceAtMost(config.timeoutMs.toLong())
+            val left = (deadline - clock()).coerceAtMost(timeoutMs.toLong())
             when (val result = provider.complete(request.copy(timeoutMs = left.toInt()))) {
                 is LlmResult.Ok -> {
                     state.onSuccess(provider.id, clock(), result.latencyMs)
@@ -67,13 +75,17 @@ class LlmGateway(
                     lastLatencyMs = result.latencyMs
                     FileLog.i(TAG, "LLM_OK provider=${provider.id} model=${result.model} " +
                         "ms=${result.latencyMs} chars=${tagged.text.length} emotion=${tagged.emotion} " +
-                        "used=${state.status(provider.id).usedToday}" +
+                        "tokens=${request.maxTokens}" + (if (result.truncated) " truncated" else "") +
+                        (if (tagged.details) " details" else "") +
+                        " used=${state.status(provider.id).usedToday}" +
                         if (skipped.isEmpty()) "" else " skipped=${skipped.joinToString()}")
                     return Responder.Answer(
                         text = tagged.text,
                         isError = false,
                         emotion = tagged.emotion,
                         source = lastSource,
+                        offersPage = tagged.details,
+                        truncated = result.truncated,
                     )
                 }
                 is LlmResult.Failed -> {

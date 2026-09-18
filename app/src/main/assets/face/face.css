@@ -308,3 +308,27 @@ body.sleepy #offline { opacity: 0; }
 #user { color: var(--muted); font-size: 3.4vh; margin-bottom: .6vh; }
 #answer { color: var(--text); font-size: 4.4vh; line-height: 1.25; max-height: 16vh; overflow: hidden; }
 #user:empty, #answer:empty { display: none; }
+
+/* A page for the phone (FR-PAGE-05): a card with the QR code, painted once on a canvas and faded
+   in once — nothing animates while it is shown. A sibling of #stage, so the sleepy dimming
+   leaves it readable; brightness is the activity's business. */
+#qr {
+  position: absolute;
+  top: 45%;
+  right: 4vw;
+  width: 42vh;
+  transform: translateY(-50%);
+  padding: 2vh;
+  box-sizing: border-box;
+  background: #fff;
+  border-radius: 2.4vh;
+  text-align: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .6s, visibility 0s linear .6s;
+}
+#qr.on { opacity: 1; visibility: visible; transition: opacity .6s; }
+#qrCanvas { display: block; width: 38vh; height: 38vh; margin: 0 auto; }
+#qrCaption { color: #1d2b3a; font-size: 2.8vh; font-weight: 600; line-height: 1.2; margin-top: 1.4vh; max-height: 6.8vh; overflow: hidden; }
+#qrHint { color: #5f676e; font-size: 1.9vh; margin-top: .6vh; }
+#qrUrl { color: #5f676e; font-family: monospace; font-size: 1.8vh; margin-top: .3vh; word-break: break-all; }

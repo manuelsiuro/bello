@@ -21,6 +21,8 @@ class FaceView(context: Context, private val listener: Listener) : WebView(conte
         fun onFaceReady()
         fun onFaceTap()
         fun onFaceLongPress()
+        /** The card with the QR code was tapped away (FR-PAGE-05). */
+        fun onQrHidden()
     }
 
     private val main = Handler(Looper.getMainLooper())
@@ -55,6 +57,12 @@ class FaceView(context: Context, private val listener: Listener) : WebView(conte
 
     fun clearSubtitles() = run(FaceScript.call("clearSubtitles"))
 
+    /** A page for the phone (FR-PAGE-05): the QR code as rows of '0'/'1', a caption and the URL. */
+    fun showQr(rows: List<String>, caption: String, url: String) =
+        run(FaceScript.call("showQr", rows.joinToString("\n"), caption, url))
+
+    fun hideQr() = run(FaceScript.call("hideQr"))
+
     private fun run(script: String) = main.post {
         if (ready) evaluateJavascript(script, null) else pending += script
     }
@@ -73,6 +81,9 @@ class FaceView(context: Context, private val listener: Listener) : WebView(conte
 
         @JavascriptInterface
         fun onLongPress() = main.post { listener.onFaceLongPress() }
+
+        @JavascriptInterface
+        fun onQrHidden() = main.post { listener.onQrHidden() }
 
         @JavascriptInterface
         fun log(message: String) = FileLog.i("face", message)

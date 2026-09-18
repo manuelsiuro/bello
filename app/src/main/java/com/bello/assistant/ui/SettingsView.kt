@@ -119,6 +119,7 @@ class SettingsView(
         number("Relance (secondes)", prefs.followUpMs / 1000f, 1f, 0f, 20f) {
             prefs.followUpMs = (it * 1000).toInt()
         }
+        toggle("Détails sur le téléphone (code QR)", prefs.pageOffers) { prefs.pageOffers = it }
 
         section("Nuit")
         time("Début", prefs.nightStart) { prefs.nightStart = it; host.onSettingsChanged("night") }

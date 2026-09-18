@@ -3,12 +3,14 @@ package com.bello.assistant.assistant
 import android.content.Context
 import com.bello.assistant.core.AppConfig
 import com.bello.assistant.core.FileLog
+import com.bello.assistant.llm.AskOptions
 import com.bello.assistant.llm.LlmGateway
 import com.bello.assistant.memory.BelloDb
 import com.bello.assistant.memory.FactStore
 import com.bello.assistant.memory.SessionMemory
 import com.bello.assistant.tools.Alarms
 import com.bello.assistant.tools.News
+import com.bello.assistant.tools.PagePublisher
 import com.bello.assistant.tools.Schedule
 import com.bello.assistant.tools.Weather
 import com.bello.assistant.ui.FaceState
@@ -17,22 +19,30 @@ import com.bello.assistant.voice.SpeechText
 /**
  * Decides who answers (FR-TOOL-08): Bello itself for the clock, timers, alarms, the weather, the
  * news and its own memory — a provider for everything else, with the conversation so far and the
- * remembered facts attached (FR-MEM-01/03).
+ * remembered facts attached (FR-MEM-01/03). When an answer is really a page, it offers the
+ * details on the phone and waits for a yes (FR-PAGE-01/02).
  */
 class Router(
     context: Context,
     private val gateway: LlmGateway,
     private val config: AppConfig,
     private val listener: Listener,
+    private val pages: PagePublisher,
     private val clock: () -> Long = System::currentTimeMillis,
     /** Asked before anything that needs the network, so an outage answers instantly (NFR-REL-02). */
     private val isOnline: () -> Boolean = { true },
+    /** The owner can turn the offers off in the settings (FR-PAGE-01). */
+    private val offersEnabled: () -> Boolean = { true },
 ) : Responder {
 
-    /** What the conversation has to do on the side: stop ringing, refresh the countdown. */
+    /** What the conversation has to do on the side: stop ringing, refresh the countdown, show a page. */
     interface Listener {
         fun onSchedulesChanged()
         fun onStopRequested()
+        /** A page is ready for the phone (FR-PAGE-05). Called on the page writer's thread. */
+        fun onPageReady(url: String, qrRows: List<String>, caption: String, spoken: String)
+        /** The page could not be written; [spoken] says so. Called on the page writer's thread. */
+        fun onPageFailed(spoken: String)
     }
 
     private val app = context.applicationContext
@@ -43,9 +53,25 @@ class Router(
     private val weather = Weather(app)
     private val news = News(app)
 
+    /** The offer the next utterance may be answering. Lost with the Router on a config reload. */
+    @Volatile private var offer: PageOffer.Offer? = null
+
     override fun answer(question: String): Responder.Answer {
         val now = clock()
-        val intent = Intents.match(SpeechText.forIntent(question))
+        val forIntent = SpeechText.forIntent(question)
+        val flat = Intents.deaccent(forIntent)
+        pendingOffer(now)?.let { pending ->
+            offer = null
+            when (YesNo.parse(flat)) {
+                YesNo.Reply.YES -> return accept(pending)
+                YesNo.Reply.NO -> {
+                    FileLog.i(TAG, "PAGE_DECLINED")
+                    return say(ToolReplies.pageDeclined())
+                }
+                YesNo.Reply.OTHER -> FileLog.i(TAG, "PAGE_DROPPED reason=other")
+            }
+        }
+        val intent = Intents.match(forIntent)
         if (intent != Intent.None) {
             FileLog.i(TAG, "intent=${intent.javaClass.simpleName}")
             return handle(intent, now)
@@ -56,8 +82,78 @@ class Router(
         }
         if (session.expireIfIdle(now)) FileLog.i(TAG, "session expired, starting fresh")
         val answer = gateway.ask(question, session.history(now), facts.promptBlock())
-        if (!answer.isError) session.add(question, answer.text, now)
-        return answer
+        if (answer.isError) return answer
+        // The offer is spoken, not remembered: the model must not learn to ask it itself.
+        session.add(question, answer.text, now)
+        val by = when {
+            !offersEnabled() -> return answer
+            answer.offersPage -> "tag"
+            PageOffer.wantsPage(flat) -> "question"
+            else -> return answer
+        }
+        offer = PageOffer.Offer(question, answer.text, now)
+        FileLog.i(TAG, "PAGE_OFFERED by=$by")
+        return answer.copy(text = answer.text + " " + ToolReplies.pageOffer(), followUpMs = OFFER_FOLLOW_UP_MS)
+    }
+
+    /** A ring or a cancel: "oui" would be answering something else now. */
+    override fun reset() {
+        if (offer != null) FileLog.i(TAG, "PAGE_DROPPED reason=interrupted")
+        offer = null
+    }
+
+    private fun pendingOffer(now: Long): PageOffer.Offer? {
+        val current = offer ?: return null
+        if (PageOffer.stillValid(current, now)) return current
+        offer = null
+        FileLog.i(TAG, "PAGE_DROPPED reason=expired")
+        return null
+    }
+
+    /**
+     * "Oui": say so at once and write the page in the background; the listener shows it when it
+     * is ready (FR-PAGE-02/03). No follow-up window after the answer, so Bello is free to
+     * announce the page when it comes.
+     */
+    private fun accept(pending: PageOffer.Offer): Responder.Answer {
+        FileLog.i(TAG, "PAGE_ACCEPTED")
+        if (!isOnline()) return offline(ToolReplies.offline())
+        val host = pages.address()
+        if (host == null) {
+            FileLog.w(TAG, "PAGE_DROPPED reason=no-wifi")
+            return offline(ToolReplies.pageNotOnWifi())
+        }
+        Thread({ write(pending, host) }, "page-writer").start()
+        return say(ToolReplies.pagePreparing()).copy(followUpMs = 0)
+    }
+
+    private fun write(pending: PageOffer.Offer, host: String) {
+        try {
+            FileLog.i(TAG, "PAGE_WRITING")
+            // No history and no remembered facts: nothing personal goes on a page served to the network.
+            val full = gateway.ask(
+                ToolReplies.pagePrompt(pending.question, pending.spokenAnswer), emptyList(), "",
+                AskOptions(
+                    system = ToolReplies.PAGE_SYSTEM, maxTokens = PAGE_MAX_TOKENS,
+                    timeoutMs = PAGE_TIMEOUT_MS, budgetMs = PAGE_BUDGET_MS,
+                ),
+            )
+            if (full.isError || full.text.isBlank()) {
+                FileLog.w(TAG, "PAGE_FAILED reason=llm")
+                listener.onPageFailed(ToolReplies.pageFailed())
+                return
+            }
+            val page = pages.publish(full.text, host, full.truncated)
+            if (page == null) {
+                FileLog.w(TAG, "PAGE_FAILED reason=publish")
+                listener.onPageFailed(ToolReplies.pageFailed())
+                return
+            }
+            listener.onPageReady(page.url, page.qrRows, ToolReplies.qrCaption(page.title), ToolReplies.pageReady(page.title))
+        } catch (t: Throwable) {
+            FileLog.w(TAG, "PAGE_FAILED reason=exception", t)
+            runCatching { listener.onPageFailed(ToolReplies.pageFailed()) }
+        }
     }
 
     /** Ringing was triggered by the alarm receiver, not by a question. */
@@ -154,5 +250,13 @@ class Router(
     private fun offline(text: String) =
         Responder.Answer(text, isError = true, emotion = FaceState.SAD, source = "local")
 
-    private companion object { const val TAG = "router" }
+    private companion object {
+        const val TAG = "router"
+        /** Long enough to find the phone; after that "oui" is an ordinary word again. */
+        const val OFFER_FOLLOW_UP_MS = 10_000
+        /** A page is a few hundred words; reasoning models spend part of this thinking. */
+        const val PAGE_MAX_TOKENS = 2_000
+        const val PAGE_TIMEOUT_MS = 60_000
+        const val PAGE_BUDGET_MS = 90_000
+    }
 }

@@ -55,7 +55,7 @@ class OpenAiCompatibleProvider(
                 } else {
                     val answer = OpenAiParse.content(text)
                     if (answer.isNullOrBlank()) LlmResult.Failed(FailureKind.EMPTY, shorten(text))
-                    else LlmResult.Ok(answer, config.model, ms)
+                    else LlmResult.Ok(answer, config.model, ms, truncated = OpenAiParse.finishReason(text) == "length")
                 }
             }
         } catch (t: Throwable) {
@@ -117,6 +117,11 @@ object OpenAiParse {
             else -> null
         }
     }.getOrNull()
+
+    /** "stop", "length" (cut for lack of room), or null when the provider does not say. */
+    fun finishReason(json: String): String? = runCatching {
+        JSONObject(json).optJSONArray("choices")?.optJSONObject(0)?.optString("finish_reason")
+    }.getOrNull()?.takeIf { it.isNotEmpty() }
 
     fun errorMessage(json: String): String = runCatching {
         val error = JSONObject(json).opt("error")

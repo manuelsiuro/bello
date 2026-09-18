@@ -126,6 +126,8 @@ object ConfigIo {
         put("ttsPitch", prefs.ttsPitch.toDouble())
         put("ttsRate", prefs.ttsRate.toDouble())
         put("followUpMs", prefs.followUpMs)
+        put("pageOffers", prefs.pageOffers)
+        put("pagePort", prefs.pagePort)
         put("nightStart", prefs.nightStart)
         put("nightEnd", prefs.nightEnd)
         put("nightBrightness", prefs.nightBrightness.toDouble())
@@ -145,6 +147,8 @@ object ConfigIo {
         if (settings.has("ttsPitch")) prefs.ttsPitch = settings.optDouble("ttsPitch").toFloat()
         if (settings.has("ttsRate")) prefs.ttsRate = settings.optDouble("ttsRate").toFloat()
         if (settings.has("followUpMs")) prefs.followUpMs = settings.optInt("followUpMs")
+        if (settings.has("pageOffers")) prefs.pageOffers = settings.optBoolean("pageOffers")
+        if (settings.has("pagePort")) prefs.pagePort = settings.optInt("pagePort").coerceIn(1024, 65535)
         NightMode.parse(settings.optString("nightStart"))?.let { prefs.nightStart = NightMode.format(it) }
         NightMode.parse(settings.optString("nightEnd"))?.let { prefs.nightEnd = NightMode.format(it) }
         if (settings.has("nightBrightness")) {

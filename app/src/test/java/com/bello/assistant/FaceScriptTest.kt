@@ -25,6 +25,14 @@ class FaceScriptTest {
     }
 
     @Test
+    fun showQrCarriesRowsCaptionAndUrl() {
+        assertEquals(
+            "bello.showQr(\"1010\\n0101\",\"Crêpes\",\"http://192.168.1.199:8080/r/k3x9q2ab\");",
+            FaceScript.call("showQr", "1010\n0101", "Crêpes", "http://192.168.1.199:8080/r/k3x9q2ab")
+        )
+    }
+
+    @Test
     fun mapsStateNames() {
         assertEquals(FaceState.SLEEPY, FaceState.fromJs("sleepy"))
         assertNull(FaceState.fromJs("dancing"))

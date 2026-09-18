@@ -39,6 +39,11 @@ class Assistant(
     private var turn = Turn.IDLE
     private var currentUtterance: String? = null
     private var lastAnswerWasError = false
+    /** The last answer's wish for the follow-up window, if it had one (FR-PAGE-02). */
+    private var lastFollowUpHint: Int? = null
+    /** An announcement that arrived while Bello was busy, kept for the next quiet moment. */
+    private var pendingAnnouncement: Pair<String, FaceState?>? = null
+    private var pendingAnnouncementAt = 0L
     private var retriedBusy = false
     /** True while listening because of a wake word Bello has not yet had confirmed by speech. */
     private var provisionalWake = false
@@ -134,6 +139,7 @@ class Assistant(
     /** A timer or an alarm went off (FR-TOOL-04): ring, look alert, say what it was about. */
     fun ring(text: String) {
         cancelTimers()
+        responder.reset()
         wake.pause("ringing")
         stt.cancel()
         tts.stop()
@@ -144,6 +150,7 @@ class Assistant(
         // then listens for "stop" (FR-TOOL-04).
         face.setEmotion(FaceState.ALERT)
         lastAnswerWasError = false
+        lastFollowUpHint = null
         currentUtterance = tts.speak(SpeechText.forSpeech(text))
         face.showAnswer(text)
         turn = Turn.SPEAKING
@@ -176,8 +183,37 @@ class Assistant(
         say(text, isError = false)
     }
 
+    /**
+     * Something happened while nobody was talking to Bello — a page is ready for the phone
+     * (FR-PAGE-05). Like a greeting it never interrupts: when busy it waits for the next quiet
+     * moment, and a fast provider often beats "je prépare la page" to the end of the sentence.
+     * No follow-up window afterwards: the wake word is back at once.
+     */
+    fun announce(text: String, emotion: FaceState? = null) {
+        if (turn != Turn.IDLE || ringer.isRinging) {
+            FileLog.i(TAG, "announcement deferred turn=$turn")
+            pendingAnnouncement = text to emotion
+            pendingAnnouncementAt = android.os.SystemClock.elapsedRealtime()
+            return
+        }
+        pendingAnnouncement = null
+        face.showUser("")
+        say(text, isError = false, emotion = emotion, followUpMs = 0)
+    }
+
+    private val deliverAnnouncement = Runnable {
+        val (text, emotion) = pendingAnnouncement ?: return@Runnable
+        pendingAnnouncement = null
+        if (android.os.SystemClock.elapsedRealtime() - pendingAnnouncementAt > ANNOUNCEMENT_TTL_MS) {
+            FileLog.i(TAG, "announcement dropped (too late)")
+        } else {
+            announce(text, emotion)
+        }
+    }
+
     fun cancel() {
         askSeq++
+        responder.reset()
         cancelTimers()
         stt.cancel()
         tts.stop()
@@ -279,13 +315,14 @@ class Assistant(
                     return@post
                 }
                 FileLog.i(TAG, "answer from=${answer.source ?: "none"} ms=$ms chars=${answer.text.length}")
-                say(answer.text, answer.isError, answer.emotion)
+                say(answer.text, answer.isError, answer.emotion, answer.followUpMs)
             }
         }, "responder").start()
     }
 
-    private fun say(text: String, isError: Boolean, emotion: FaceState? = null) {
+    private fun say(text: String, isError: Boolean, emotion: FaceState? = null, followUpMs: Int? = null) {
         lastAnswerWasError = isError
+        lastFollowUpHint = followUpMs
         // "Stop" and friends are obeyed, not commented on.
         if (text.isBlank()) {
             setTurn(Turn.IDLE)
@@ -318,12 +355,15 @@ class Assistant(
             if (ringer.isRinging) {
                 FileLog.i(TAG, "still ringing, waiting for a tap or \"stop\"")
                 startListening(Turn.FOLLOW_UP, AFTER_SPEECH_PAUSE_MS)
-            } else if (ConversationPolicy.shouldFollowUp(turn, lastAnswerWasError, prefs.followUpMs)) {
-                FileLog.i(TAG, "follow-up window ${prefs.followUpMs} ms")
-                startListening(Turn.FOLLOW_UP, AFTER_SPEECH_PAUSE_MS)
-                main.postDelayed(followUpTimeout, prefs.followUpMs.toLong())
             } else {
-                setTurn(Turn.IDLE)
+                val window = ConversationPolicy.followUpWindow(prefs.followUpMs, lastFollowUpHint)
+                if (ConversationPolicy.shouldFollowUp(turn, lastAnswerWasError, window)) {
+                    FileLog.i(TAG, "follow-up window $window ms")
+                    startListening(Turn.FOLLOW_UP, AFTER_SPEECH_PAUSE_MS)
+                    main.postDelayed(followUpTimeout, window.toLong())
+                } else {
+                    setTurn(Turn.IDLE)
+                }
             }
         }
     }
@@ -357,6 +397,7 @@ class Assistant(
         face.setState(ConversationPolicy.face(next, isNight()))
         FileLog.i(TAG, "turn=$next")
         onTurnChanged?.invoke(next)
+        if (next == Turn.IDLE && pendingAnnouncement != null) main.post(deliverAnnouncement)
     }
 
     private fun cancelTimers() = main.removeCallbacksAndMessages(null)
@@ -367,6 +408,8 @@ class Assistant(
         const val AFTER_SPEECH_PAUSE_MS = 400L
         const val RECOGNIZER_RETRY_MS = 600L
         const val EMOTION_LINGER_MS = 4_000L
+        /** A page announced two minutes late would be about a card that is nearly gone. */
+        const val ANNOUNCEMENT_TTL_MS = 120_000L
         const val GREETING_MS = 5_000L
         const val WAKE_START_DELAY_MS = 1_500L
         /** The wake word holds the microphone until it hears one; the recogniser needs it free. */

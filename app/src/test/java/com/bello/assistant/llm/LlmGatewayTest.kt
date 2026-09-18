@@ -2,6 +2,7 @@ package com.bello.assistant.llm
 
 import com.bello.assistant.ui.FaceState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -16,9 +17,11 @@ class LlmGatewayTest {
     ) : LlmProvider {
         override val model = "fake-model"
         var calls = 0
+        var lastRequest: LlmRequest? = null
         override fun isReady() = ready
         override fun complete(request: LlmRequest): LlmResult {
             calls++
+            lastRequest = request
             return if (results.size > 1) results.removeAt(0) else results.first()
         }
     }
@@ -123,5 +126,32 @@ class LlmGatewayTest {
         assertTrue(line.contains("ok=1"))
         assertTrue(line.contains("today=1"))
         assertEquals("gemini/fake-model", gateway.lastSource)
+    }
+
+    @Test fun `a system override replaces the persona and widens the room and the time`() {
+        val fake = Fake("gemini", mutableListOf(ok("# Crêpes\n## Ingrédients")))
+        val config = LlmConfig.EMPTY.copy(timeoutMs = 20_000, totalBudgetMs = 45_000)
+        val answer = gateway(fake, config = config).ask(
+            "q", emptyList(), "", AskOptions(system = "Chef", maxTokens = 2000, timeoutMs = 60_000, budgetMs = 90_000),
+        )
+        val request = fake.lastRequest!!
+        assertEquals("Chef", request.system)
+        assertEquals(2000, request.maxTokens)
+        assertEquals(60_000, request.timeoutMs)
+        assertEquals("# Crêpes\n## Ingrédients", answer.text)
+        assertFalse(answer.offersPage)
+    }
+
+    @Test fun `by default the persona, the date and the usual room are sent, and a details tag is passed on`() {
+        val fake = Fake("gemini", mutableListOf(ok("[happy] Des œufs et du lait. [détails]")))
+        val answer = gateway(fake).answer("La recette des crêpes ?")
+        val request = fake.lastRequest!!
+        assertTrue(request.system.contains("Nous sommes le jeudi"))
+        assertTrue(request.system.contains("[détails]"))
+        assertEquals(512, request.maxTokens)
+        assertEquals(20_000, request.timeoutMs)
+        assertEquals("Des œufs et du lait.", answer.text)
+        assertEquals(FaceState.HAPPY, answer.emotion)
+        assertTrue(answer.offersPage)
     }
 }

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+<!-- Rendered on the phone that scanned the code, not on the tablet: any modern browser. -->
+<style>
+  :root { color-scheme: light dark; --ink: #1d2b3a; --paper: #fffdf7; --accent: #f3c21a; --muted: #6b7280; }
+  @media (prefers-color-scheme: dark) { :root { --ink: #f3f4f6; --paper: #14202b; --muted: #9ca3af; } }
+  html { font-size: 18px; }
+  body { margin: 0; padding: 1.2em 1.2em 3em; background: var(--paper); color: var(--ink);
+         font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; line-height: 1.5; }
+  main { max-width: 40em; margin: 0 auto; }
+  h1 { font-size: 1.8em; line-height: 1.15; margin: 0 0 .6em; padding-bottom: .3em; border-bottom: .16em solid var(--accent); }
+  h2 { font-size: 1.05em; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 1.6em 0 .5em; }
+  h3 { font-size: 1.05em; margin: 1.2em 0 .4em; }
+  p { margin: .6em 0; }
+  ul, ol { padding-left: 1.4em; margin: .4em 0; }
+  ul li { margin: .4em 0; }
+  ol li { margin: .9em 0; padding-left: .3em; }
+  ol li::marker { font-weight: 700; color: var(--accent); }
+  strong { font-weight: 700; }
+  .cut { color: var(--muted); font-style: italic; }
+  footer { max-width: 40em; margin: 3em auto 0; font-size: .8em; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+{{body}}
+</main>
+<footer>Servi par Bello · {{meta}}</footer>
+</body>
+</html>

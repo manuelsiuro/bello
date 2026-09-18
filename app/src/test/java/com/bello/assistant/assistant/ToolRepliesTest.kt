@@ -19,6 +19,26 @@ class ToolRepliesTest {
     private fun timer(remainingMs: Long, label: String? = null, now: Long = at(9, 0)) =
         Schedule(1, Schedule.Kind.TIMER, now + remainingMs, label, remainingMs)
 
+    @Test fun `the page offer, its confirmations and its refusals are spoken French`() {
+        assertTrue(ToolReplies.pageOffer().contains("code QR"))
+        assertTrue(ToolReplies.pagePreparing().contains("regarde l'écran"))
+        assertEquals("C'est prêt : Crêpes. Scanne le code QR avec ton téléphone.", ToolReplies.pageReady("Crêpes"))
+        assertTrue(ToolReplies.pageReady(null).startsWith("C'est prêt !"))
+        assertTrue(ToolReplies.pageDeclined().contains("pas de code QR"))
+        assertTrue(ToolReplies.pageNotOnWifi().contains("Wi-Fi"))
+        assertTrue(ToolReplies.pageFailed().contains("Réessaie"))
+        assertEquals("Crêpes", ToolReplies.qrCaption("Crêpes"))
+        assertEquals("Le détail de la réponse", ToolReplies.qrCaption(null))
+    }
+
+    @Test fun `the page prompt carries the question, the spoken answer and the structure`() {
+        val prompt = ToolReplies.pagePrompt("la recette des crêpes", "Il te faut des œufs.")
+        assertTrue(prompt.contains("« la recette des crêpes »"))
+        assertTrue(prompt.contains("« Il te faut des œufs. »"))
+        listOf("Markdown", "## Ingrédients", "## Préparation", "## Étapes", "## Liste", "pas d'adresse web")
+            .forEach { assertTrue(it, ToolReplies.PAGE_SYSTEM.contains(it)) }
+    }
+
     @Test fun `the clock is spoken, not printed`() {
         assertEquals("Il est 9 heures 5.", ToolReplies.time(at(9, 5)))
         assertEquals("Il est 14 heures.", ToolReplies.time(at(14, 0)))

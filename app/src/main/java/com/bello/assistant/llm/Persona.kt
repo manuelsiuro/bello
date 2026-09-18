@@ -22,22 +22,36 @@ object Persona {
           [happy] [sad] [confused] [alert] [neutral], puis la réponse.
     """.trimIndent()
 
-    /** The system prompt actually sent: persona + the one fact a model can never guess. */
-    fun system(persona: String, nowLabel: String): String = "$persona\nNous sommes le $nowLabel."
+    /**
+     * Some answers are really a page (FR-PAGE-01): the model says so with a trailing tag, and Bello
+     * offers the details on the phone. Kept apart from [DEFAULT] so a custom persona keeps it.
+     */
+    val DETAILS_RULE = "- Si la réponse complète demanderait une liste, des étapes ou une recette, " +
+        "réponds quand même en trois phrases et termine par l'étiquette [détails]."
 
-    data class Tagged(val emotion: FaceState?, val text: String)
+    /** The system prompt actually sent: persona + the details rule + the one fact a model can never guess. */
+    fun system(persona: String, nowLabel: String): String =
+        "$persona\n$DETAILS_RULE\nNous sommes le $nowLabel."
+
+    /** @param details the model thinks the full answer deserves a page (FR-PAGE-01). */
+    data class Tagged(val emotion: FaceState?, val text: String, val details: Boolean = false)
 
     private val LEADING_TAG = Regex("^\\s*[\\[(]\\s*([\\p{L}]{3,12})\\s*[])]\\s*[:,-]?\\s*")
+    private val TRAILING_DETAILS = Regex("\\s*[\\[(]\\s*d[ée]tails?\\s*[])]\\s*[.!]?\\s*$", RegexOption.IGNORE_CASE)
 
     /**
-     * Splits "[happy] Bello !" into the face state and the spoken text. A known tag is removed
-     * (neutral leaves no expression); anything else is left in place — it is probably real text.
+     * Splits "[happy] Bello ! [détails]" into the face state, the spoken text and the page flag.
+     * A known tag is removed (neutral leaves no expression); anything else is left in place — it
+     * is probably real text.
      */
     fun split(raw: String): Tagged {
-        val match = LEADING_TAG.find(raw) ?: return Tagged(null, raw.trim())
+        val trailing = TRAILING_DETAILS.find(raw)
+        val details = trailing != null
+        val body = if (trailing == null) raw else raw.substring(0, trailing.range.first)
+        val match = LEADING_TAG.find(body) ?: return Tagged(null, body.trim(), details)
         val word = match.groupValues[1].lowercase()
-        if (word !in EMOTIONS) return Tagged(null, raw.trim())
-        return Tagged(EMOTIONS[word], raw.substring(match.range.last + 1).trim())
+        if (word !in EMOTIONS) return Tagged(null, body.trim(), details)
+        return Tagged(EMOTIONS[word], body.substring(match.range.last + 1).trim(), details)
     }
 
     private val EMOTIONS: Map<String, FaceState?> = mapOf(

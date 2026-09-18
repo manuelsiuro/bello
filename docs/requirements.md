@@ -242,6 +242,17 @@ Priority: **M** = must (v1), **S** = should (v1 if feasible), **C** = could (lat
 | FR-DIAG-02 | Debug overlay (toggle) shows state, active provider, last latency, memory use, temperature. | S |
 | FR-DIAG-03 | Rolling local log file (size-capped) retrievable via `adb pull`. | S |
 
+### 6.14 The details on the phone
+
+| ID | Requirement | Pri |
+|---|---|---|
+| FR-PAGE-01 | After an answer that is really a recipe, a how-to or a list (the model ends it with a `[détails]` tag; a local French heuristic on the question is the safety net), Bello offers the details on the phone in one sentence. The offers can be turned off in the settings. | S |
+| FR-PAGE-02 | "Oui" within 90 s — in the follow-up window, widened to 10 s, or after a tap or the wake word — accepts; "non" drops the offer in one sentence; anything else drops it silently and is handled as usual ("stop" still stops, a timer is still set). A ring or a cancel drops it. | S |
+| FR-PAGE-03 | The full version is written by a provider in a fixed Markdown structure (a title; ingredients with quantities and numbered steps for a recipe; steps for a method; a list), with its own system prompt and room, without the session or the remembered facts, and rendered into a self-contained mobile page. An answer cut for lack of room says so. | S |
+| FR-PAGE-04 | The page is served by the tablet on the local network over plain HTTP: GET and HEAD only, in memory, at most 10 pages for 2 hours, unguessable ids, the port open only while a page exists. Nothing is written to disk and nothing leaves the LAN. | S |
+| FR-PAGE-05 | The face shows the QR code of the URL with a caption and the URL for three minutes at full brightness, night or not; a tap on the card, "stop", a newer page or the timeout hides it — never the next question. Bello announces the page aloud when it is idle. | S |
+| FR-PAGE-06 | Without a Wi-Fi address, or when the provider fails, Bello says so in one sentence and drops the offer. | S |
+
 ## 7. Non-functional requirements
 
 | ID | Category | Requirement |
@@ -256,6 +267,7 @@ Priority: **M** = must (v1), **S** = should (v1 if feasible), **C** = could (lat
 | NFR-REL-02 | Reliability | Network loss: face shows offline state; local tools (clock, timers, alarms) keep working; recovers automatically. |
 | NFR-SEC-01 | Security | All network calls over HTTPS with Conscrypt + bundled CA roots (independent of the 2017 system store, and of the GlobalSign cross-sign expiring 2028-01-28). |
 | NFR-SEC-02 | Security | API keys stored only in app-private storage; never logged. |
+| NFR-SEC-03 | Security | The page server is the app's only inbound surface: it reads one request line, parses no body, serves only its own pages, closes every connection, logs no page content, and listens only while a page exists. |
 | NFR-PRIV-01 | Privacy | Microphone audio leaves the device only after the wake word/tap (for STT). Camera frames never leave the device. |
 | NFR-PRIV-02 | Privacy | Settings screen shows a notice that free-tier providers (notably Gemini) may use prompts for training/human review. |
 | NFR-COMP-01 | Compatibility | `minSdk 21`, `targetSdk` chosen for API-21 compatibility of all libraries; APK includes `armeabi-v7a` native libs only. |
@@ -307,6 +319,7 @@ Priority: **M** = must (v1), **S** = should (v1 if feasible), **C** = could (lat
 10. Settings: long-press opens settings; config exported to JSON, modified on the Mac, pushed via `adb`, and imported successfully.
 11. With Wi-Fi off: face shows offline state, clock/timers/alarms keep working; with Wi-Fi back, conversation resumes without restart.
 12. 7-day unattended run with no crash requiring manual action; NFR-PERF targets met.
+13. "Donne-moi la recette des crêpes" is answered in three sentences plus the offer; "oui" puts a QR code on the face and a phone on the home Wi-Fi reads the recipe with quantities and numbered steps; "non" drops the offer in one sentence.
 
 ## 11. Implementation status
 
@@ -322,6 +335,7 @@ Requirement families against the phases that deliver them (2026-09-18).
 | FR-PRES (presence), FR-ON-06 (night mode), FR-SET (settings, config import) | 6 | ✅ built and verified on the tablet |
 | NFR-REL-02 (network loss), FR-DIAG (logs, overlay), NFR-HW-01 (battery care) | 7 | ✅ built and verified |
 | NFR-REL-01 (seven days unattended), acceptance criteria run | 7 | ◐ 11 of 12 criteria pass; the soak is running |
+| FR-PAGE (the details on the phone), NFR-SEC-03 | 8 | ✅ built and verified on the tablet: a spoken "oui", a page in 0.9–4.8 s, read on a phone from the code |
 
 **Deviations decided while building**
 

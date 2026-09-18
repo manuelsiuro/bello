@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Phases 0–6 done · Phase 7: 11 of 12 criteria pass, the 7-day soak is running |
+| Status | Phases 0–6 done · Phase 7: 11 of 12 criteria pass, the 7-day soak restarted 2026-09-18 15:39 by the Phase 8 install · Phase 8 (the details on the phone) built and verified on the tablet |
 | Date | 2026-09-18 |
 | Inputs | [requirements.md](requirements.md) · [feasibility-results.md](feasibility-results.md) · [device-galaxy-tab4.md](device-galaxy-tab4.md) |
 | Target | Galaxy Tab 4 SM-T530, Android 5.0.2 (API 21), `armeabi-v7a`, serial `e3572b180497ec75` |
@@ -30,7 +30,7 @@ GalaxyTab4/
 │       │   ├── assistant/            # conversation state machine, memory, tools (Phase 3–4)
 │       │   ├── ui/                   # activity, face bridge, settings (Phase 1, 6)
 │       │   └── service/              # foreground service, boot receiver (Phase 1)
-│       ├── assets/                   # cacert.pem, face/, gemini/
+│       ├── assets/                   # cacert.pem, face/, gemini/, page/
 │       └── jniLibs/armeabi-v7a/      # libvosk.so (patched), libstdiofix.so
 ├── scripts/                  # build / install / model / logs helpers (run on the Mac)
 ├── spikes/                   # feasibility test bench (unchanged)
@@ -360,6 +360,71 @@ where a phase's own measurement is cited.
 - **Samsung will not let `adb` turn the Wi-Fi off** (`svc wifi disable` is killed), so the offline
   test drives the settings screen with `input tap`. Worth knowing before planning an outage test.
 
+### Phase 8 — The details on the phone ◐
+
+**Goal:** when an answer is really a recipe, a list or a set of steps, Bello offers the full
+version on the phone: it writes a page, serves it from the tablet on the home Wi-Fi and shows a
+QR code on the face (FR-PAGE-01..06). Added after Phase 7, on the branch `feature/qr-page`.
+
+| ID | Task | Status |
+|---|---|---|
+| P8-1 | The offer and the yes/no: `assistant/PageOffer`, `assistant/YesNo` (pure), the offer held by the Router for 90 s, the `[détails]` tag in the persona, the sentences in `ToolReplies` (FR-PAGE-01, 02, 06) | ☑ |
+| P8-2 | The page: a second gateway call with its own author and budget (`llm/AskOptions`), `tools/MarkdownLite`, `assets/page/page.html`, an answer cut for room says so (FR-PAGE-03) | ☑ |
+| P8-3 | The server on the tablet: `net/PageServer`, `net/PageProtocol`, `net/PageStore`, `net/LocalAddress`, the `pagePort` setting (FR-PAGE-04, NFR-SEC-03) | ☑ |
+| P8-4 | The code on the face: ZXing core, `tools/QrCode`, `bello.showQr`, brightness held while it shows (FR-PAGE-05) | ☑ |
+| P8-5 | `scripts/page.sh demo|status|off|open|ask`, log tokens `PAGE_*`, the overlay line, the settings toggle | ☑ |
+| P8-6 | On the tablet: the measurements below, acceptance criterion 13 | ☑ criterion 11 with an offer pending not re-run (Wi-Fi off needs the settings screen) |
+
+**Done when:** a recipe question ends with the offer; "oui" puts a QR code on the face within the
+page budget and a phone on the home Wi-Fi reads the page with quantities and numbered steps;
+"non" drops it in one sentence; without Wi-Fi Bello says so; idle CPU and PSS unchanged with the
+server up; all unit tests pass.
+
+**Result (2026-09-18, installed at 15:39 on the tablet):**
+
+| What | Measured on the device |
+|---|---|
+| The whole path without a provider | `scripts/page.sh demo`: `PAGE_SERVER_UP` → `PAGE_PUBLISHED` → `PAGE_SHOWN` in **73 ms**; a phone on the home Wi-Fi opened the page 14 s later (`PAGE_SERVED … from=192.168.1.108`) |
+| The page from the Mac | over the LAN: 200, 2 771 bytes in **0.10 s**; unknown id 404, POST 400, a TLS hello closed silently, `/` answers the status line |
+| "oui" by text | `PAGE_ACCEPTED` → "Je prépare la page" in **65 ms**; the page written by Gemini 3.6 Flash in **4.8 s** (1 449 chars), by Groq gpt-oss-20b in **0.9 s** (1 046–1 294 chars); shown at once |
+| "oui" by voice, in the room | recognised in the 10 s follow-up window (conf 0.93), page shown **1.0 s** later, the announcement deferred while Bello was still speaking and said 3 s after; the phone fetched the page 8 s after that |
+| "non", something else | declined in **7 ms**; "quelle heure est-il" dropped the offer and got the clock in **38 ms** |
+| Detection | Gemini tags recipes `[détails]`; Groq did not tag a how-to, the question heuristic caught it (`PAGE_OFFERED by=question`) |
+| The card | version 3 (29 modules) at 8 px per module; a tap hides it without starting to listen; `bello.isQrShown()` follows |
+| A question while the card shows | the card stays, by design: the weather asked by wake word at 15:56 left the 15:55 card on screen until a tap removed it. Only a tap on the card, "stop", a newer page or the three-minute timeout hides it — a question or a follow-up never does |
+| Night | card shown: brightness override **−1 (full)**; hidden: **12/255**; day: −1 |
+| Cost | wake word paused, card shown, server up: **12.1–12.7 % CPU, 191 MB**; server down, card hidden: 13.6 %, 188 MB. No page thread ever shows in `top`; the swings between windows (14 → 26 %) follow the wake-word thread (13 % while the room talks) |
+| Quota | Gemini's free tier answered 429 during the test and Groq took over; a page is one more call per question |
+| Tests | 174 JVM unit tests (135 before) |
+
+**Findings (from building it):**
+- **Two questions cannot be answered in one call.** `Responder.answer()` is synchronous and the
+  microphone is exclusive, so writing the page inside the "oui" turn would have meant a thinking
+  face and a deaf Bello for up to a minute. The page is written on its own thread: "oui" is
+  answered at once and the page is announced when it comes — only if Bello is idle, like a greeting.
+- **The persona had to leave the room.** "Trois phrases, sans liste, sans markdown" contradicts
+  everything a page is for; the page call replaces the system prompt instead of appending to it,
+  and sends neither the session nor the remembered facts, so nothing personal goes on a page
+  served to the network.
+- **Nothing hides the card but the card.** Hiding it on the next turn would have let the first
+  "merci" in the follow-up window wipe the code; a card lasts three minutes, and only a tap on it,
+  "stop", a newer page or the timeout ends that. Night mode had two brightness rules, one of
+  which dimmed the screen the moment a turn ended; it has one now, and a page on show counts as
+  company.
+- **A yes is a whole utterance, not a word.** "Non, mets un minuteur" must set the timer and
+  "oui mais pour six personnes" is a new question; only an utterance made of nothing but yes and
+  no words (fillers aside) answers the offer, and a no anywhere wins.
+- **A fast provider beats the sentence that announces it.** Groq wrote the page in under a second,
+  while Bello was still saying "je prépare la page"; the first build skipped the announcement as
+  "busy". It now waits for the next quiet moment, and gives up after two minutes.
+- **The measurement is the room.** Three cost windows disagreed by twelve points with nothing
+  changing on screen; `top -t` showed the wake-word thread at 13 % and no page thread at all.
+  Somebody was talking near the tablet. Pausing the wake word gave the number.
+- **What was said aloud goes on the page.** The page prompt quotes the spoken answer for
+  consistency, and the spoken answer may carry a remembered fact (the crêpes page mentioned the
+  owner's favourite dessert). The page is served to the home network only, and the fact had
+  already been said out loud in the room; worth knowing, not worth fixing.
+
 ## 4. Dependencies between phases
 
 ```
@@ -370,6 +435,7 @@ P0 ─▶ P1 ─▶ P2 ─▶ P3 ─▶ P4 ─▶ P7
 ```
 
 Phase 5 can start after Phase 2 (needs mic arbitration with STT/TTS). Phase 6 can run in parallel with Phases 3–5 after Phase 1.
+Phase 8 needs Phase 4 (the Router and the gateway) and Phase 1 (the face); it was added after Phase 7 and does not gate it.
 
 ## 5. Inputs needed from the user
 
@@ -400,12 +466,13 @@ twelfth is the seven-day unattended run, started 2026-09-18 11:44 (`scripts/soak
 | What | Measured on the device |
 |---|---|
 | Answering | Gemini 1.2–2.1 s, Groq 0.6 s, fallback on quota or failure, key-free Gemini Web behind them |
+| The details on the phone | the offer after a recipe or a how-to; "oui" by voice → a page written in 0.9–4.8 s, served by the tablet, read on a phone from the QR code on the face |
 | Doing it itself | the clock in 19–34 ms, timers and alarms, weather in ~1 s, headlines, memory across restarts |
 | Hearing its name | 14–16 of 20 calls across a room, 0 false wakes in 21.4 min of continuous French |
 | Cost, everything running | 12–16 % CPU, 33–34 °C, ~167 MB (budgets: 35 %, 42 °C, 350 MB) |
 | Cost, face alone | 6 % CPU, 67 MB |
 | Recovering | crash → back in ~1 s with a backing-off restart; reboot → face 4 s after `BOOT_COMPLETED`, alarms re-armed; network gone → local tools keep working, answers in 6 ms, resumes by itself |
-| Tests | 135 JVM unit tests |
+| Tests | 174 JVM unit tests (135 before Phase 8) |
 
 **Still open, and recorded as such:**
 
@@ -415,6 +482,8 @@ twelfth is the seven-day unattended run, started 2026-09-18 11:44 (`scripts/soak
    `room 30` re-checks false wakes with the television on — worth doing because the distance
    compensation was added after the false-wake measurement.
 3. **The battery**, which is a decision rather than a task: see "Inputs needed from the user".
+4. **Phase 8 is on the tablet** since 2026-09-18 15:39, on the branch `feature/qr-page`; the
+   install restarted the soak clock (`scripts/soak.sh start` resets the report's baseline).
 
 **If someone picks this up later**, the two habits that caught the most problems were re-running
 the acceptance criteria against the build in hand rather than trusting the last phase's result —

@@ -42,6 +42,18 @@ class Prefs(context: Context) {
         get() = sp.getInt("followUpMs", 6000)
         set(v) = sp.edit().putInt("followUpMs", v).apply()
 
+    // --- A page for the phone (FR-PAGE-*) ----------------------------------------------------
+
+    /** Offer the details on the phone after a recipe, a how-to or a list (FR-PAGE-01). */
+    var pageOffers: Boolean
+        get() = sp.getBoolean("pageOffers", true)
+        set(v) = sp.edit().putBoolean("pageOffers", v).apply()
+
+    /** Where the tablet serves its pages; `adb forward tcp:8080 tcp:8080` reaches it from the Mac. */
+    var pagePort: Int
+        get() = sp.getInt("pagePort", 8080)
+        set(v) = sp.edit().putInt("pagePort", v).apply()
+
     // --- Night mode (FR-ON-06) -------------------------------------------------------------
 
     /** "23:00" and "07:00"; equal times mean the screen never dims. */

@@ -33,6 +33,14 @@ object ConversationPolicy {
         turn == Turn.SPEAKING && !wasError && followUpMs > 0
 
     /**
+     * How long the window is: the setting, unless the answer asks otherwise — longer when Bello
+     * has just asked a question, none when it is about to speak again by itself (FR-PAGE-02).
+     * A disabled window (0) stays disabled: the owner turned it off.
+     */
+    fun followUpWindow(settingMs: Int, hintMs: Int?): Int =
+        if (settingMs <= 0) 0 else hintMs ?: settingMs
+
+    /**
      * A failed recognition ends the exchange silently (no "I didn't hear") in a follow-up window,
      * and after a wake word Bello was not sure about: a false wake then costs a listening face for
      * a second and nothing else (FR-WAKE-01).

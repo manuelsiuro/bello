@@ -127,6 +127,50 @@ object ToolReplies {
             titles.joinToString("\n") { "- $it" } +
             "\n\nRésume-les en trois phrases maximum, à lire à voix haute, sans liste et sans citer de source."
 
+    // --- A page for the phone (FR-PAGE) ---------------------------------------------------------
+
+    fun pageOffer(): String = "Tu veux le détail sur ton téléphone ? Dis oui et je t'affiche un code QR."
+
+    fun pagePreparing(): String = "Je prépare la page, regarde l'écran dans quelques secondes."
+
+    fun pageReady(title: String?): String =
+        (title?.let { "C'est prêt : $it. " } ?: "C'est prêt ! ") + "Scanne le code QR avec ton téléphone."
+
+    fun pageDeclined(): String = "D'accord, pas de code QR."
+
+    fun pageNotOnWifi(): String =
+        "Je ne suis pas connecté au Wi-Fi, je ne peux pas t'envoyer la page sur ton téléphone."
+
+    fun pageFailed(): String = "Je n'ai pas réussi à écrire la page. Réessaie dans un petit instant !"
+
+    /** Under the QR code, on the face (FR-PAGE-05). */
+    fun qrCaption(title: String?): String = title ?: "Le détail de la réponse"
+
+    /**
+     * The author of the page (FR-PAGE-03). It replaces the persona for that one call: Bello's
+     * "three spoken sentences, no list" would contradict everything a page is for.
+     */
+    val PAGE_SYSTEM: String = """
+        Tu es un rédacteur précis. Tu écris en français, au format Markdown, la version complète et
+        détaillée d'une réponse que l'assistant vocal Bello vient de donner en trois phrases.
+        Rien d'autre : pas d'introduction, pas de conclusion, pas d'emoji, pas d'étiquette d'émotion,
+        pas d'adresse web, pas de tableau, pas de titre de niveau 3.
+        Structure : un titre de niveau 1 (# ), puis des sections de niveau 2 (## ) adaptées au sujet :
+        - pour une recette : une ligne avec le nombre de personnes et les temps de préparation et de
+          cuisson ; « ## Ingrédients » en liste à puces avec les quantités ; « ## Préparation » en liste
+          numérotée, une étape par ligne ; « ## Conseils ».
+        - pour un mode d'emploi, une méthode ou un itinéraire : « ## Ce qu'il faut » si nécessaire,
+          puis « ## Étapes » en liste numérotée, puis « ## Conseils ».
+        - pour une liste : « ## Liste » en puces, avec une courte explication par élément.
+        Moins de quatre cents mots. Reste fidèle à ce qui a déjà été dit à voix haute.
+    """.trimIndent()
+
+    fun pagePrompt(question: String, spokenAnswer: String): String =
+        "La question posée : « $question »\n" +
+            "Ce qui a déjà été répondu à voix haute : « $spokenAnswer »\n\n" +
+            "Écris maintenant la version complète, pour quatre personnes s'il s'agit d'une recette " +
+            "et si la question ne précise pas un autre nombre."
+
     private fun isTomorrow(dueAt: Long, now: Long): Boolean {
         val today = Calendar.getInstance().apply { timeInMillis = now }.get(Calendar.DAY_OF_YEAR)
         val due = Calendar.getInstance().apply { timeInMillis = dueAt }.get(Calendar.DAY_OF_YEAR)

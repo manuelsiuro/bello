@@ -37,6 +37,14 @@ class ConversationPolicyTest {
     }
 
     @Test
+    fun theAnswerMayAskForALongerWindowOrNoneButNeverReopenADisabledOne() {
+        assertEquals(6000, ConversationPolicy.followUpWindow(settingMs = 6000, hintMs = null))
+        assertEquals(10_000, ConversationPolicy.followUpWindow(settingMs = 6000, hintMs = 10_000))
+        assertEquals(0, ConversationPolicy.followUpWindow(settingMs = 6000, hintMs = 0))
+        assertEquals(0, ConversationPolicy.followUpWindow(settingMs = 0, hintMs = 10_000))
+    }
+
+    @Test
     fun silenceEndsAFollowUpWithoutComplaining() {
         assertTrue(ConversationPolicy.silentOnNoSpeech(Turn.FOLLOW_UP))
         assertFalse(ConversationPolicy.silentOnNoSpeech(Turn.LISTENING))

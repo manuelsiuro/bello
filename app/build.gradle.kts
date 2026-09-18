@@ -39,6 +39,8 @@ dependencies {
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.conscrypt:conscrypt-android:2.7.0")
+    // QR codes for the pages served to the phone (pure Java, no AndroidX).
+    implementation("com.google.zxing:core:3.5.3")
 
     // Vosk 0.3.75 Java classes; native libvosk.so in jniLibs is patched for API 21
     // (needs libstdiofix.so, see spikes/native/stdiofix and docs/feasibility-results.md SP-03).

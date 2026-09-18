@@ -13,7 +13,9 @@ import android.os.Process
 import android.os.SystemClock
 import com.bello.assistant.llm.LlmFactory
 import com.bello.assistant.llm.LlmGateway
+import com.bello.assistant.core.Prefs
 import com.bello.assistant.net.HttpClients
+import com.bello.assistant.tools.PagePublisher
 import com.bello.assistant.ui.MainActivity
 import kotlin.system.exitProcess
 
@@ -34,6 +36,13 @@ class BelloApp : Application() {
         gatewayOrNull?.close()
         return LlmFactory.build(this).also { gatewayOrNull = it }
     }
+
+    /** The pages served to the phone live with the process too: a config reload must not drop them. */
+    @Volatile private var pagesOrNull: PagePublisher? = null
+
+    @Synchronized
+    fun pages(): PagePublisher =
+        pagesOrNull ?: PagePublisher(this, portSetting = { Prefs(this).pagePort }).also { pagesOrNull = it }
 
     private val startedAt = SystemClock.elapsedRealtime()
 

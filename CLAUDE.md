@@ -5,6 +5,7 @@
 - Requirements: [docs/requirements.md](docs/requirements.md)
 - Feasibility spike results: [docs/feasibility-results.md](docs/feasibility-results.md) (test bench in `spikes/`, a separate Gradle project)
 - Implementation plan and phase status: [docs/implementation-plan.md](docs/implementation-plan.md)
+- Studies: free services Bello could use, checked with real calls: [docs/free-services.md](docs/free-services.md); the SFR TV decoder and how it is driven: [docs/sfr-tv-box.md](docs/sfr-tv-box.md)
 
 ## Primary device
 

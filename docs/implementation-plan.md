@@ -484,12 +484,12 @@ twelfth is the seven-day unattended run, started 2026-09-18 11:44 (`scripts/soak
 |---|---|
 | Answering | Gemini 1.2–2.1 s, Groq 0.6 s, fallback on quota or failure, key-free Gemini Web behind them |
 | The details on the phone | the offer after a recipe or a how-to; "oui" by voice → a page written in 0.9–4.8 s, served by the tablet, read on a phone from the QR code on the face |
-| Doing it itself | the clock in 19–34 ms, timers and alarms, weather in ~1 s, headlines, memory across restarts |
+| Doing it itself | the clock in 19–34 ms, timers and alarms, weather in ~1 s, headlines, memory across restarts, the television's state from the decoder in 323 ms |
 | Hearing its name | 14–16 of 20 calls across a room, 0 false wakes in 21.4 min of continuous French |
 | Cost, everything running | 12–16 % CPU, 33–34 °C, ~167 MB (budgets: 35 %, 42 °C, 350 MB) |
 | Cost, face alone | 6 % CPU, 67 MB |
 | Recovering | crash → back in ~1 s with a backing-off restart; reboot → face 4 s after `BOOT_COMPLETED`, alarms re-armed; network gone → local tools keep working, answers in 6 ms, resumes by itself |
-| Tests | 174 JVM unit tests (135 before Phase 8) |
+| Tests | 186 JVM unit tests (174 before Phase 9) |
 
 **Still open, and recorded as such:**
 
@@ -499,8 +499,13 @@ twelfth is the seven-day unattended run, started 2026-09-18 11:44 (`scripts/soak
    `room 30` re-checks false wakes with the television on — worth doing because the distance
    compensation was added after the false-wake measurement.
 3. **The battery**, which is a decision rather than a task: see "Inputs needed from the user".
-4. **Phase 8 is on the tablet** since 2026-09-18 15:39, on the branch `feature/qr-page`; the
-   install restarted the soak clock (`scripts/soak.sh start` resets the report's baseline).
+4. **Phase 9 is on the tablet** since 2026-09-18 17:59, and its install restarted the soak clock
+   again (`scripts/soak.sh start` resets the report's baseline).
+5. **The television's keys.** The decoder says `OK` to any key name, so every key but `mute` is
+   confirmed only by watching the screen: ten minutes with `scripts/tv.sh` (P9-6), plus the
+   household's channel names for `tvBox.channels` if they differ from the TNT table.
+6. **Which free services to add next**: the study in [free-services.md](free-services.md) ranks
+   thirteen features that need no sign-up and six that need a free one; the choice is the owner's.
 
 **If someone picks this up later**, the two habits that caught the most problems were re-running
 the acceptance criteria against the build in hand rather than trusting the last phase's result —

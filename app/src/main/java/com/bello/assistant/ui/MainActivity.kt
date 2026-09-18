@@ -27,6 +27,7 @@ import com.bello.assistant.core.Diagnostics
 import com.bello.assistant.core.FileLog
 import com.bello.assistant.core.NightMode
 import com.bello.assistant.core.Prefs
+import com.bello.assistant.net.Connectivity
 import com.bello.assistant.presence.Presence
 import com.bello.assistant.BelloApp
 import com.bello.assistant.llm.LlmGateway
@@ -55,6 +56,7 @@ class MainActivity : Activity(), FaceView.Listener {
     /** null = follow the clock; true/false = forced, for testing night mode at ten in the morning. */
     private var nightOverride: Boolean? = null
     private var night = false
+    private lateinit var network: Connectivity
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -71,7 +73,11 @@ class MainActivity : Activity(), FaceView.Listener {
         gateway = (application as BelloApp).gateway()
         // The hidden Gemini Web page (if enabled) sits behind the face, at index 0.
         gateway.attachWebHost(root)
-        router = Router(this, gateway, AppConfig.load(this), routerListener)
+        network = Connectivity(this) { online ->
+            face.showOffline(!online)
+            FileLog.i(TAG, "network=${if (online) "back" else "lost"}")
+        }
+        router = Router(this, gateway, AppConfig.load(this), routerListener, isOnline = network::isOnline)
         assistant = Assistant(this, face, router, isNight = { night })
         assistant.onTurnChanged = { onTurnChanged() }
         presence = Presence(this, prefs, presenceListener)
@@ -93,6 +99,7 @@ class MainActivity : Activity(), FaceView.Listener {
         AssistantService.start(this, "activity")
         applyNight()
         presence.start()
+        network.start()
         FileLog.i(TAG, "created reason=${intent.getStringExtra(EXTRA_LAUNCH_REASON) ?: "launcher"} uptime=${SystemClock.elapsedRealtime() / 1000}s")
         handleCommands(intent)
     }
@@ -136,6 +143,7 @@ class MainActivity : Activity(), FaceView.Listener {
 
     override fun onDestroy() {
         presence.release()
+        network.stop()
         ticker.removeCallbacks(nightWatch)
         ticker.removeCallbacks(countdown)
         assistant.release()
@@ -150,7 +158,8 @@ class MainActivity : Activity(), FaceView.Listener {
     }
 
     private fun overlayLines(): List<String> = buildList {
-        add("turn=${assistant.currentTurn} ${DebugOverlay.memoryLine()}")
+        add("turn=${assistant.currentTurn} ${com.bello.assistant.core.PerfMonitor.lastLine}")
+        add(if (network.isOnline()) "network ok" else "NO NETWORK")
         add("last=${gateway.lastSource ?: "—"} ${gateway.lastLatencyMs} ms")
         add(assistant.wakeStatus())
         add("${presence.status()} night=$night")
@@ -304,7 +313,7 @@ class MainActivity : Activity(), FaceView.Listener {
         val fresh = (application as BelloApp).reloadGateway()
         gateway = fresh
         fresh.attachWebHost(root)
-        router = Router(this, fresh, AppConfig.load(this), routerListener)
+        router = Router(this, fresh, AppConfig.load(this), routerListener, isOnline = network::isOnline)
         assistant.setResponder(router)
         assistant.setVoiceParams(prefs.ttsPitch, prefs.ttsRate)
         assistant.wakeCommand(if (prefs.wakeEnabled) prefs.wakeSensitivity else "off")
@@ -334,11 +343,10 @@ class MainActivity : Activity(), FaceView.Listener {
         intent.getStringExtra(EXTRA_LLM)?.let { command ->
             when (command) {
                 "status" -> overlayLines().forEach { FileLog.i(TAG, "LLM_STATUS $it") }
+                // Through the router, always: answering straight from the gateway would leave
+                // Bello without its clock, timers, tools or memory until the next restart.
                 "reload" -> {
-                    val fresh = (application as BelloApp).reloadGateway()
-                    gateway = fresh
-                    fresh.attachWebHost(root)
-                    assistant.setResponder(fresh)
+                    reloadEverything()
                     FileLog.i(TAG, "LLM_RELOADED")
                     overlayLines().forEach { FileLog.i(TAG, "LLM_STATUS $it") }
                 }

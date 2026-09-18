@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Phases 0–6 done · Phase 7 next |
+| Status | Phases 0–6 done · Phase 7: 11 of 12 criteria pass, the 7-day soak is running |
 | Date | 2026-09-18 |
 | Inputs | [requirements.md](requirements.md) · [feasibility-results.md](feasibility-results.md) · [device-galaxy-tab4.md](device-galaxy-tab4.md) |
 | Target | Galaxy Tab 4 SM-T530, Android 5.0.2 (API 21), `armeabi-v7a`, serial `e3572b180497ec75` |
@@ -313,17 +313,52 @@ three minutes whenever it is worth knowing, and the thresholds follow from `wake
   a setting the owner would have to put back: `screenBrightness` on its own window, visible as
   `mScreenBrightnessOverrideFromWindowManager` and gone the moment the app is not in front.
 
-### Phase 7 — Hardening and acceptance ☐
+### Phase 7 — Hardening and acceptance ◐
 
-| ID | Task |
-|---|---|
-| P7-1 | Network loss/recovery, provider outage, low-memory (`onTrimMemory`) handling (NFR-REL-02) |
-| P7-2 | Debug overlay and rolling log retrieval (FR-DIAG-*) |
-| P7-3 | 7-day unattended soak test with CPU/memory/temperature logging (NFR-REL-01) |
-| P7-4 | Run all 12 acceptance criteria; document results |
-| P7-5 | Battery care: smart plug / charging schedule recommendation (NFR-HW-01) |
+| ID | Task | Status |
+|---|---|---|
+| P7-1 | Network loss/recovery, provider outage, low-memory (`onTrimMemory`) handling (NFR-REL-02) | ☑ |
+| P7-2 | Debug overlay and rolling log retrieval (FR-DIAG-*) | ☑ |
+| P7-3 | 7-day unattended soak test with CPU/memory/temperature logging (NFR-REL-01) | ◐ running since 2026-09-18 11:44 |
+| P7-4 | Run all 12 acceptance criteria; document results | ☑ 11 of 12; the twelfth is the soak |
+| P7-5 | Battery care: smart plug / charging schedule recommendation (NFR-HW-01) | ☑ |
 
 **Done when:** all acceptance criteria pass and the 7-day soak completes without manual intervention.
+
+**Acceptance criteria (2026-09-18).** Everything re-run against the build now on the tablet, except
+where a phase's own measurement is cited.
+
+| # | Criterion | Result |
+|---|---|---|
+| 1 | Face within 60 s of a cold boot | ✅ `FACE_READY` **4 s after `BOOT_COMPLETED`**; the tablet's own boot takes 162 s, which no app can shorten |
+| 2 | Spoken weather, with the face states | ✅ voice round trip measured in Phase 4; re-run today by text: *"À Grasse, il fait 24 degrés, partiellement nuageux…"* in **987 ms** |
+| 3 | Fallback to the next provider on a forced 429 | ✅ `scripts/fallback-test.sh`: `LLM_FAIL fake-429 RATE_LIMIT` → `LLM_OK fake-ok`, and the next question skips the provider in cooldown |
+| 4 | Gemini Web answers; breaking it falls back | ✅ measured in Phase 3 (11–12 s warm, 69 ms to skip a broken page); the provider reports `state=available` today |
+| 5 | Typed questions work like spoken ones | ✅ every criterion here was driven by text, and by voice in Phases 2, 4 and 5 |
+| 6 | Timer rings and stops; an alarm survives a reboot | ✅ a timer set at 11:37:53 for 240 s **rang at 11:41:54 — across a full reboot**, 241 s later (`rescheduled 1, dropped 0 stale`) |
+| 7 | A remembered fact is used later and can be deleted | ✅ "souviens-toi que mon dessert préféré est la tarte tatin" → recalled in the next answer; deletion by voice and from the settings screen |
+| 8 | Night: dimmed, sleepy, and "Bello" still wakes it | ✅ face **sleepy**, brightness **12/255** (system setting 60); a conversation brings it to full and it dims again afterwards; the wake word listens throughout |
+| 9 | Greeting after an absence | ✅ `PRESENCE_ARRIVED_AND_MISSED` → `greeting` the moment somebody looked at it |
+| 10 | Settings: long press, export, edit on the Mac, push, import | ✅ exported with the keys **masked**, edited, imported, applied live (`CONFIG_APPLIED`), real keys untouched on the device |
+| 11 | Wi-Fi off: offline face, local tools keep working; back without a restart | ✅ `NETWORK_LOST` → "hors ligne" on the face, clock in **34 ms**, a timer rang on time, a network question answered truthfully in **6 ms** instead of timing out; Wi-Fi back → `NETWORK_BACK`, Gemini answering in **2.0 s**, same process |
+| 12 | Seven days unattended | ◐ **running.** `scripts/soak.sh report` tells you where it is |
+
+**Findings:**
+- **A missing permission is a crash loop, not a crash.** `ACCESS_NETWORK_STATE` was missing, so the
+  activity died on launch — and the crash handler restarted it into the same crash every 1.2 s,
+  which on an always-on tablet means a hot device and a flat battery until somebody notices. The
+  restart now backs off (2 s, 4 s, 8 s… to a minute) and resets once a process has lived two
+  minutes. Half an hour of a startup crash costs a few dozen restarts instead of fifteen hundred.
+- **Reloading the configuration silently removed half of Bello.** `scripts/llm.sh reload` set the
+  answer source back to the provider gateway, which was right in Phase 3 and wrong from Phase 4
+  onwards: the clock, the timers, the weather and the memory all stopped being consulted until the
+  next restart. Found by asking Bello to remember something right after a reload, in the middle of
+  re-running the acceptance criteria — which is the argument for re-running them.
+- **Knowing there is no network is worth more than handling the failure.** Three providers timing
+  out politely take twenty seconds; asking the system first answers in six milliseconds, and says
+  what Bello *can* still do rather than apologising.
+- **Samsung will not let `adb` turn the Wi-Fi off** (`svc wifi disable` is killed), so the offline
+  test drives the settings screen with `input tap`. Worth knowing before planning an outage test.
 
 ## 4. Dependencies between phases
 

@@ -19,6 +19,7 @@
   var answerEl = document.getElementById('answer');
   var clockEl = document.getElementById('clock');
   var countdownEl = document.getElementById('countdown');
+  var offlineEl = document.getElementById('offline');
 
   var state = 'idle';
   var emotion = '';
@@ -95,6 +96,9 @@
     countdownEl.className = text ? 'on' : '';
   }
 
+  // Set when the network comes and goes; nothing animates while it is steady.
+  function showOffline(on) { offlineEl.className = on ? 'on' : ''; }
+
   function clearSubtitles() { userEl.textContent = ''; answerEl.textContent = ''; }
 
   // --- Touch: tap and long press ---------------------------------------------------------------
@@ -122,8 +126,10 @@
     showUser: showUser,
     showAnswer: showAnswer,
     showCountdown: showCountdown,
+    showOffline: showOffline,
     clearSubtitles: clearSubtitles,
-    getState: function () { return state + (emotion ? '+' + emotion : ''); }
+    getState: function () { return state + (emotion ? '+' + emotion : ''); },
+    isOffline: function () { return offlineEl.className === 'on'; }
   };
 
   tickClock();

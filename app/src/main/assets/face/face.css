@@ -266,6 +266,20 @@ body.sleepy #clock { color: rgba(255, 255, 255, .25); }
 }
 #countdown.on { opacity: .85; }
 
+/* No network: said quietly, in a corner, for as long as it lasts (NFR-REL-02). */
+#offline {
+  position: absolute;
+  bottom: 2.5vh;
+  left: 3vw;
+  color: rgba(255, 255, 255, .45);
+  font-size: 2.6vh;
+  letter-spacing: .08em;
+  opacity: 0;
+  transition: opacity .4s;
+}
+#offline.on { opacity: 1; }
+body.sleepy #offline { opacity: 0; }
+
 /* Subtitles */
 #subtitles {
   position: absolute;

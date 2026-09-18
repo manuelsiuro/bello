@@ -45,6 +45,7 @@ scripts/wake-live.sh calls 10 | room 30         # measure with a real voice, in 
 scripts/night.sh on|off|auto                # night mode now, without waiting for 23:00
 scripts/presence.sh on|off|status|check     # the camera: is it seeing anybody, and what it sees
 scripts/settings.sh export|import|open|status   # the whole configuration as one file
+scripts/soak.sh start|report|stop           # the unattended run: crashes, network, CPU, heat, battery
 ```
 
 API keys: copy `config/bello.example.json` to `config/bello.local.json` (git-ignored), add your free
@@ -68,7 +69,12 @@ Home screen: after installing, press Home on the tablet and choose Bello → "Al
 - Vosk: the bundled `libvosk.so` is patched to need `libstdiofix.so`; always call `VoskRuntime.load()` before using Vosk.
 - Log with `core/FileLog` — logcat is flooded by the Samsung camera HAL; the app log file is the source of truth.
 - Face (`assets/face/`): HTML/CSS, never SVG for animated parts — animating SVG repaints the whole face every frame (13 % CPU idle vs 6 % now). No infinite animation in idle/sleepy; idle life comes from sparse JS timers. Chromium 95 features only.
-- Crashes are handled by the app (log, schedule restart, kill own process) so Android never shows its crash dialog on this always-on device.
+- Crashes are handled by the app (log, schedule restart, kill own process) so Android never shows
+  its crash dialog on this always-on device. The restart backs off after crashes that follow each
+  other closely (`core/RestartBackoff`): a crash at startup would otherwise loop for ever.
+- Anything that rebuilds the answer source must go through `MainActivity.reloadEverything()`, which
+  puts the **Router** back in front of the gateway. Setting the gateway directly costs Bello its
+  clock, timers, tools and memory until the next restart.
 - LLM: every provider goes through `llm/LlmGateway` (ordered providers, fallback, cooldowns). Free
   tiers speak the OpenAI dialect, Gemini included. Answers may start with an emotion tag (`[happy]`)
   that `llm/Persona` turns into a face expression.

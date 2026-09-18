@@ -35,6 +35,13 @@ object ProcStat {
  * Lines look like: `PERF cpuProc=4.1 cpuSys=12.3 tempC=31.2 pssMB=98`.
  */
 class PerfMonitor(private val context: Context, private val periodMs: Long) {
+
+    companion object {
+        /** The last sample, for the debug overlay (FR-DIAG-02). */
+        @Volatile var lastLine: String = "—"
+            private set
+    }
+
     private val handler = Handler(Looper.getMainLooper())
     private var last: ProcStat.Cpu? = null
     private var lastProc = 0L
@@ -73,7 +80,14 @@ class PerfMonitor(private val context: Context, private val periodMs: Long) {
         val sysPct = ProcStat.percent(dTotal - (cpu.idle - prev.idle), dTotal)
         val battery = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val tempC = (battery?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0) / 10.0
-        FileLog.i("perf", String.format(java.util.Locale.US, "PERF cpuProc=%.1f cpuSys=%.1f tempC=%.1f pssMB=%d",
-            procPct, sysPct, tempC, Debug.getPss() / 1024))
+        // Battery level over a week is what says whether the charging schedule is working.
+        val level = battery?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val plugged = (battery?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0) != 0
+        val line = String.format(java.util.Locale.US, "cpu %.0f%% (sys %.0f%%) %.1f C %d MB",
+            procPct, sysPct, tempC, Debug.getPss() / 1024)
+        lastLine = line
+        FileLog.i("perf", String.format(java.util.Locale.US,
+            "PERF cpuProc=%.1f cpuSys=%.1f tempC=%.1f pssMB=%d battery=%d%s",
+            procPct, sysPct, tempC, Debug.getPss() / 1024, level, if (plugged) "+" else "-"))
     }
 }

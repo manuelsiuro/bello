@@ -13,6 +13,14 @@ import java.util.Locale
  */
 object ToolReplies {
 
+    /**
+     * No network (NFR-REL-02). Worth saying what still works: the things Bello does by itself are
+     * exactly the ones somebody is most likely to ask for.
+     */
+    fun offline(): String =
+        "Je n'ai plus de réseau. Je peux quand même te donner l'heure, " +
+            "mettre un minuteur ou te réveiller."
+
     /** Somebody has come back into the room after a while (FR-PRES-02). */
     fun greeting(hour: Int): String = when (hour) {
         in 0..4 -> "Oh ! Encore debout ?"

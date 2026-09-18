@@ -320,7 +320,8 @@ Requirement families against the phases that deliver them (2026-09-18).
 | FR-MEM (memory), FR-TOOL (clock, timers, alarms, weather, news) | 4 | ✅ built |
 | FR-WAKE (wake word "Bello") | 5 | ✅ built and tuned: 14–16 of 20 detection, 0 false wakes in 21 min of speech, 19 % CPU while a room talks. Accepted without the real-voice figure, which `scripts/wake-live.sh` measures in three minutes if it is ever in doubt |
 | FR-PRES (presence), FR-ON-06 (night mode), FR-SET (settings, config import) | 6 | ✅ built and verified on the tablet |
-| NFR-REL, NFR-PERF, acceptance criteria run | 7 | ☐ |
+| NFR-REL-02 (network loss), FR-DIAG (logs, overlay), NFR-HW-01 (battery care) | 7 | ✅ built and verified |
+| NFR-REL-01 (seven days unattended), acceptance criteria run | 7 | ◐ 11 of 12 criteria pass; the soak is running |
 
 **Deviations decided while building**
 

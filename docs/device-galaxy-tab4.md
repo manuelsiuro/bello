@@ -44,3 +44,26 @@ adb shell getprop ro.build.version.release       # Android version
 - **Low RAM (~1.4 GB):** expect aggressive background process killing; watch memory use during testing.
 - **Charging over USB:** battery reports status 3 ("discharging/not charging") while USB-powered — use a wall charger for long sessions.
 - **Old TLS/WebView:** outdated system WebView and CA store; HTTPS to modern endpoints may fail without a bundled TLS provider (e.g. Conscrypt).
+
+## Keeping the battery alive (NFR-HW-01)
+
+An always-on tablet spends its life plugged in at 100 %, which is the one thing a lithium battery
+likes least: a cell held at full charge and at room temperature ages several times faster than one
+kept around half. On a 2014 device the battery is already a decade old, it is glued in, and a
+swollen one bends the screen — so this is about the tablet surviving, not about tidiness.
+
+**What to do, in order of how much trouble it is:**
+
+1. **A cheap mains timer or smart plug.** Give it power for a few hours a day — say 06:00–09:00 and
+   18:00–21:00 — and let it run on battery in between. Bello idles at 5–9 % CPU, so a healthy
+   battery carries it comfortably; a tired one will tell you soon enough by how fast the level
+   drops in `scripts/soak.sh report`.
+2. **If it must stay plugged, keep it cool.** Off the windowsill, off the radiator, nothing on top
+   of it. The measurements so far sit at 30–33 °C, which is fine; above 40 °C sustained, unplug it
+   more.
+3. **Watch the level, not the promise.** Every performance sample records `battery=NN+` (plugged)
+   or `battery=NN-`, so a week of soak tells you whether your schedule actually works, and whether
+   the battery still holds a charge at all.
+
+If the battery is already swollen — a lifting screen, a case that no longer sits flat — stop
+charging it, and run the tablet from mains with the battery removed if you can get the back off.

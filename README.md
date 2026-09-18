@@ -10,7 +10,10 @@ loud and on screen. Running cost: **zero** — free API tiers only, and a key-fr
 
 - **Always on.** The app is the home screen: it starts itself after a reboot, keeps the screen lit,
   comes back if it is pushed aside, and restarts itself after a crash without ever showing a system
-  dialog.
+  dialog — backing off if it ever crashes on startup, rather than looping.
+- **It copes with the Wi-Fi going away.** The face says so quietly, the clock, timers and alarms
+  carry on, and questions that need the network get a straight answer in milliseconds instead of a
+  twenty-second wait. When the network returns it simply carries on.
 - **It answers to its name.** Say « Bello » across the room and the face starts listening, offline,
   with no key and no network. If nobody then speaks, it goes quiet again without a word, so being
   wrong costs nothing. It catches roughly three calls in four from across a room, and the tap is
@@ -42,7 +45,8 @@ loud and on screen. Running cost: **zero** — free API tiers only, and a key-fr
   masked, so the file is safe to keep or share.
 - **A face that costs almost nothing.** HTML/CSS, ~6 % CPU idle and ~67 MB on a 2014 tablet.
 
-Still to come: a week of unattended running, and the last of the acceptance tests. See the [implementation plan](docs/implementation-plan.md).
+Eleven of the twelve acceptance criteria pass on the tablet; the twelfth is a seven-day unattended
+run, currently under way. See the [implementation plan](docs/implementation-plan.md).
 
 ## Things you can say
 

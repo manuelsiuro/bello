@@ -46,6 +46,9 @@ class FaceView(context: Context, private val listener: Listener) : WebView(conte
     /** Running timer, shown under the clock; empty hides it (FR-TOOL-02). */
     fun showCountdown(text: String) = run(FaceScript.call("showCountdown", text))
 
+    /** A quiet corner note while there is no network (NFR-REL-02). */
+    fun showOffline(offline: Boolean) = run("bello.showOffline($offline);")
+
     fun showUser(text: String) = run(FaceScript.call("showUser", text))
 
     fun showAnswer(text: String) = run(FaceScript.call("showAnswer", text))

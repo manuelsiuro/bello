@@ -25,6 +25,8 @@ class Router(
     private val config: AppConfig,
     private val listener: Listener,
     private val clock: () -> Long = System::currentTimeMillis,
+    /** Asked before anything that needs the network, so an outage answers instantly (NFR-REL-02). */
+    private val isOnline: () -> Boolean = { true },
 ) : Responder {
 
     /** What the conversation has to do on the side: stop ringing, refresh the countdown. */
@@ -47,6 +49,10 @@ class Router(
         if (intent != Intent.None) {
             FileLog.i(TAG, "intent=${intent.javaClass.simpleName}")
             return handle(intent, now)
+        }
+        if (!isOnline()) {
+            FileLog.i(TAG, "no network; answering locally")
+            return offline(ToolReplies.offline())
         }
         if (session.expireIfIdle(now)) FileLog.i(TAG, "session expired, starting fresh")
         val answer = gateway.ask(question, session.history(now), facts.promptBlock())
@@ -109,7 +115,7 @@ class Router(
         }
 
         is Intent.Weather -> {
-            val report = weather.report(intent.city, intent.tomorrow, config.city)
+            val report = if (isOnline()) weather.report(intent.city, intent.tomorrow, config.city) else null
             if (report == null) offline("Je n'arrive pas à consulter la météo pour le moment.")
             else say(report)
         }
@@ -135,6 +141,7 @@ class Router(
 
     /** Headlines are facts; turning them into two or three spoken sentences is a provider's job. */
     private fun news(): Responder.Answer {
+        if (!isOnline()) return offline(ToolReplies.offline())
         val titles = news.headlines(config.newsFeeds)
         if (titles.isEmpty()) return offline("Je n'arrive pas à récupérer les informations.")
         val summary = gateway.ask(ToolReplies.summarisePrompt(titles), emptyList(), "")

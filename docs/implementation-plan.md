@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Phases 0–3 done · Phase 4 next |
+| Status | Phases 0–4 done · Phase 5 next |
 | Date | 2026-09-17 |
 | Inputs | [requirements.md](requirements.md) · [feasibility-results.md](feasibility-results.md) · [device-galaxy-tab4.md](device-galaxy-tab4.md) |
 | Target | Galaxy Tab 4 SM-T530, Android 5.0.2 (API 21), `armeabi-v7a`, serial `e3572b180497ec75` |
@@ -175,18 +175,47 @@ the answer is spoken when it is complete.
 - Gemini Web ignores the per-request timeout (it needs 10–45 s, the APIs get 20 s), so it belongs
   last in the provider order.
 
-### Phase 4 — Memory and tools ☐
+### Phase 4 — Memory and tools ☑
 
-| ID | Task |
-|---|---|
-| P4-1 | Session memory (last N turns, inactivity reset) and long-term facts store (SQLite) with "souviens-toi / oublie" (FR-MEM-*) |
-| P4-2 | Local intent matcher: time, timers, alarms, stop (FR-TOOL-01..04, 08) |
-| P4-3 | Timers/alarms with `AlarmManager`, persisted, rescheduled after boot; ringing UI + face alert state |
-| P4-4 | Weather tool (Open-Meteo, configurable city, geocoding) (FR-TOOL-05) |
-| P4-5 | News tool (RSS: Le Monde, franceinfo) summarized by LLM (FR-TOOL-06) |
-| P4-6 | LLM function calling for tools where supported; keyword fallback otherwise (FR-TOOL-07, 08) |
+| ID | Task | Status |
+|---|---|---|
+| P4-1 | Session memory (last N turns, inactivity reset) and long-term facts store (SQLite) with "souviens-toi / oublie" (FR-MEM-*) | ☑ |
+| P4-2 | Local intent matcher: time, timers, alarms, stop (FR-TOOL-01..04, 08) | ☑ |
+| P4-3 | Timers/alarms with `AlarmManager`, persisted, rescheduled after boot; ringing UI + face alert state | ☑ |
+| P4-4 | Weather tool (Open-Meteo, configurable city, geocoding) (FR-TOOL-05) | ☑ |
+| P4-5 | News tool (RSS: Le Monde, franceinfo) summarized by LLM (FR-TOOL-06) | ☑ |
+| P4-6 | Tool routing: local French intent matching for every tool; LLM function calling not needed (FR-TOOL-08) | ☑ |
 
 **Done when:** acceptance criteria 2, 5, 6, 7 pass.
+
+**Result (2026-09-18):** ✅ all four criteria pass on the tablet.
+
+| Criterion | Result |
+|---|---|
+| 2 — spoken weather | "Bello, quel temps fait-il à Grasse ?" (conf 0.93) → *"À Grasse, il fait 21 degrés, plutôt ensoleillé. Aujourd'hui, entre 17 et 26 degrés."* in **627 ms**, face listening → thinking → speaking → idle |
+| 5 — typed = spoken | Same questions by `scripts/text.sh` and by voice give the same answers |
+| 6 — timer | Spoken "Mets un minuteur de 2 minutes pour les pâtes" → countdown on screen (`1:52`, ticking) → rang at **exactly 120 s**, spoke *"Ding ding ! C'est l'heure : les pâtes !"*, alert face; stopped by tap and by saying "stop" |
+| 6 — alarm across a reboot | Alarm set for 9:12, tablet rebooted at 9:07 (`rescheduled 1, dropped 0 stale`), rang at **9:12:00.09** |
+| 7 — memory | "Souviens-toi que mon café préféré est l'espresso" → asked again after a reinstall: *"ton café préféré c'est le délicieux espresso"*; listed with "qu'est-ce que tu sais de moi", deleted with "oublie mon café préféré" |
+| Follow-up questions | "Qui a peint la Joconde ?" then "Et sa hauteur ?" → *"La Joconde mesure soixante-dix-sept centimètres"* — the session carries the context (FR-MEM-01) |
+| The clock, locally | "Quelle heure est-il ?" → *"Il est 8 heures 55."* in **19 ms**, no provider call |
+| News | 6 headlines from Le Monde and franceinfo, summarised by Gemini in 4 s into three spoken sentences |
+| Tests | 102 JVM unit tests (35 new), including French durations and clock times, intent matching and every spoken reply |
+
+**Findings:**
+- **A cancelled recognizer reports an error, and that error was overwriting answers.** Asking a
+  second question while Bello was listening for a follow-up replaced the answer on screen with
+  "Mon micro est occupé". Recognizer failures are now ignored unless Bello is actually listening.
+- **Free public services hiccup.** Open-Meteo answered 503 once during testing and the question was
+  lost; tool requests now try a second time before giving up.
+- **French numbers cannot be parsed with one regular expression.** "Un quart d'heure", "1 heure 30",
+  "deux minutes trente" and "huit heures moins le quart" are all different shapes; the parser walks
+  the words, reading the number *before* each unit and the refinement *after* it.
+- **The recognizer keeps hyphens and apostrophes** ("réveille-moi", "qu'est-ce que"), so matching is
+  done on a flattened copy of the text — same length, so a label or a city can still be cut out of
+  the original with its accents.
+- An expression (the alert badge) outlives a state change, so the face can keep looking alarmed
+  while it speaks and then listens for "stop".
 
 ### Phase 5 — Wake word "Bello" ☐
 

@@ -40,6 +40,11 @@
             android:name=".service.AssistantService"
             android:exported="false" />
 
+        <!-- Timers and alarms going off (FR-TOOL-04). -->
+        <receiver
+            android:name=".tools.AlarmReceiver"
+            android:exported="false" />
+
         <receiver
             android:name=".service.BootReceiver"
             android:exported="true">

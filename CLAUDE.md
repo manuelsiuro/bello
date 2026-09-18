@@ -38,6 +38,7 @@ scripts/llm.sh status       # provider health: ok/fail counts, daily use, cooldo
 scripts/overlay.sh on|off   # debug overlay on the face (state, provider, latency, memory)
 scripts/fallback-test.sh    # forces a 429 from a fake provider and checks the fallback + cooldown
 scripts/models.sh gemini    # list the models a configured key can actually use
+scripts/ask.sh "…"          # alias of text.sh: ask a question and print the answer from the log
 ```
 
 API keys: copy `config/bello.example.json` to `config/bello.local.json` (git-ignored), add your free
@@ -71,5 +72,11 @@ Home screen: after installing, press Home on the tablet and choose Bello → "Al
 - Gemini Web (`llm/GeminiWebProvider`, off by default) is key-free but expensive: the loaded page
   costs ~48 % CPU and ~190 MB, so it is loaded around a question and released 90 s later. Its
   selectors live in `assets/gemini/gemini.js`, replaceable by pushing a file to the device.
+- Tools first, provider second: `assistant/Intents` matches French requests for the clock, timers,
+  alarms, weather, news and memory locally; `assistant/Router` sends everything else to the gateway
+  with the session history and the remembered facts. Spoken replies live in `assistant/ToolReplies`
+  (pure, unit tested) — never build a sentence to be spoken inline.
+- Memory and schedules are one small SQLite file (`memory/BelloDb`): facts survive restarts, timers
+  and alarms are put back into `AlarmManager` after a reboot.
 - Voice: speech in/out live in `voice/`; Google's TTS engine is requested by name, otherwise the system may open a store page over the face. Start the recognizer with a short delay after speaking (it reports BUSY otherwise).
 - No API keys in the repository.

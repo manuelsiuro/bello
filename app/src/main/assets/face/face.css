@@ -252,6 +252,20 @@ body.emo-alert #bang { opacity: 1; }
 }
 body.sleepy #clock { color: rgba(255, 255, 255, .25); }
 
+/* Running timer, under the clock (FR-TOOL-02). Hidden unless there is one. */
+#countdown {
+  position: absolute;
+  top: 10.5vh;
+  right: 3vw;
+  color: var(--accent, #ffd600);
+  font-size: 4vh;
+  font-weight: 400;
+  letter-spacing: .06em;
+  opacity: 0;
+  transition: opacity .3s;
+}
+#countdown.on { opacity: .85; }
+
 /* Subtitles */
 #subtitles {
   position: absolute;

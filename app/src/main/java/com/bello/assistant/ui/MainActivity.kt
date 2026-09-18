@@ -18,6 +18,8 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.bello.assistant.assistant.Assistant
+import com.bello.assistant.assistant.Router
+import com.bello.assistant.core.AppConfig
 import com.bello.assistant.core.Diagnostics
 import com.bello.assistant.core.FileLog
 import com.bello.assistant.core.Prefs
@@ -38,9 +40,11 @@ class MainActivity : Activity(), FaceView.Listener {
     private lateinit var inputBar: LinearLayout
     private lateinit var input: EditText
     private lateinit var prefs: Prefs
+    private val ticker = android.os.Handler(android.os.Looper.getMainLooper())
     private lateinit var overlay: DebugOverlay
     private lateinit var root: FrameLayout
     private lateinit var gateway: LlmGateway
+    private lateinit var router: Router
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,7 +61,8 @@ class MainActivity : Activity(), FaceView.Listener {
         gateway = (application as BelloApp).gateway()
         // The hidden Gemini Web page (if enabled) sits behind the face, at index 0.
         gateway.attachWebHost(root)
-        assistant = Assistant(this, face, gateway)
+        router = Router(this, gateway, AppConfig.load(this), routerListener)
+        assistant = Assistant(this, face, router)
         root.addView(face, FrameLayout.LayoutParams(-1, -1))
         root.addView(keyboardButton(), FrameLayout.LayoutParams(dp(64), dp(64), Gravity.BOTTOM or Gravity.END).apply {
             setMargins(0, 0, dp(16), dp(16))
@@ -84,6 +89,7 @@ class MainActivity : Activity(), FaceView.Listener {
         super.onResume()
         FaceVisibility.onShown(SystemClock.elapsedRealtime())
         hideSystemUi()
+        refreshCountdown()
     }
 
     override fun onPause() {
@@ -110,6 +116,7 @@ class MainActivity : Activity(), FaceView.Listener {
     }
 
     override fun onDestroy() {
+        ticker.removeCallbacks(countdown)
         assistant.release()
         gateway.attachWebHost(null)
         super.onDestroy()
@@ -131,6 +138,37 @@ class MainActivity : Activity(), FaceView.Listener {
         FileLog.i(TAG, "long press (settings arrive in Phase 6)")
     }
 
+    /** Timers and alarms talk back to the conversation through here. */
+    private val routerListener = object : Router.Listener {
+        override fun onSchedulesChanged() = refreshCountdown()
+        override fun onStopRequested() = assistant.stopRinging("voice")
+    }
+
+    /** The shortest running timer is shown under the clock and ticks every second (FR-TOOL-02). */
+    private val countdown = object : Runnable {
+        override fun run() {
+            val now = System.currentTimeMillis()
+            val next = router.schedules().minByOrNull { it.dueAt }
+            if (next == null) {
+                face.showCountdown("")
+                return
+            }
+            face.showCountdown(clockText(next.remainingMs(now)))
+            ticker.postDelayed(this, 1_000)
+        }
+    }
+
+    private fun refreshCountdown() {
+        ticker.removeCallbacks(countdown)
+        ticker.post(countdown)
+    }
+
+    private fun clockText(remainingMs: Long): String {
+        val total = (remainingMs + 999) / 1000
+        return if (total >= 3600) String.format("%d:%02d:%02d", total / 3600, (total % 3600) / 60, total % 60)
+        else String.format("%d:%02d", total / 60, total % 60)
+    }
+
     private fun handleCommands(intent: Intent) {
         if (intent.getBooleanExtra(EXTRA_SELFCHECK, false)) {
             Thread({ Diagnostics(applicationContext).run() }, "selfcheck").start()
@@ -143,6 +181,10 @@ class MainActivity : Activity(), FaceView.Listener {
             FaceState.fromJs(s)?.let { face.setState(it) } ?: FileLog.w(TAG, "unknown state '$s'")
         }
         intent.getStringExtra(EXTRA_OVERLAY)?.let { overlay.show(it == "on") }
+        intent.getLongExtra(EXTRA_RING, -1).takeIf { it >= 0 }?.let { id ->
+            assistant.ring(router.ringingText(id))
+            refreshCountdown()
+        }
         intent.getStringExtra(EXTRA_LLM)?.let { command ->
             when (command) {
                 "status" -> overlayLines().forEach { FileLog.i(TAG, "LLM_STATUS $it") }
@@ -265,5 +307,6 @@ class MainActivity : Activity(), FaceView.Listener {
         const val EXTRA_VOICE = "voice"
         const val EXTRA_OVERLAY = "overlay"
         const val EXTRA_LLM = "llm"
+        const val EXTRA_RING = "ring"
     }
 }

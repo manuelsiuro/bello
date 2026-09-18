@@ -43,6 +43,9 @@ class FaceView(context: Context, private val listener: Listener) : WebView(conte
     /** Expression asked for by the model, shown on top of the current state (FR-FACE-04). */
     fun setEmotion(emotion: FaceState?) = run(FaceScript.call("setEmotion", emotion?.js ?: ""))
 
+    /** Running timer, shown under the clock; empty hides it (FR-TOOL-02). */
+    fun showCountdown(text: String) = run(FaceScript.call("showCountdown", text))
+
     fun showUser(text: String) = run(FaceScript.call("showUser", text))
 
     fun showAnswer(text: String) = run(FaceScript.call("showAnswer", text))

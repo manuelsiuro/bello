@@ -18,6 +18,7 @@
   var userEl = document.getElementById('user');
   var answerEl = document.getElementById('answer');
   var clockEl = document.getElementById('clock');
+  var countdownEl = document.getElementById('countdown');
 
   var state = 'idle';
   var emotion = '';
@@ -88,6 +89,12 @@
   }
   function showUser(text) { userEl.textContent = text || ''; touchSubtitles(); }
   function showAnswer(text) { answerEl.textContent = text || ''; touchSubtitles(); }
+  // Driven from Kotlin once a second while a timer runs; nothing animates when there is none.
+  function showCountdown(text) {
+    countdownEl.textContent = text || '';
+    countdownEl.className = text ? 'on' : '';
+  }
+
   function clearSubtitles() { userEl.textContent = ''; answerEl.textContent = ''; }
 
   // --- Touch: tap and long press ---------------------------------------------------------------
@@ -114,6 +121,7 @@
     setEmotion: setEmotion,
     showUser: showUser,
     showAnswer: showAnswer,
+    showCountdown: showCountdown,
     clearSubtitles: clearSubtitles,
     getState: function () { return state + (emotion ? '+' + emotion : ''); }
   };

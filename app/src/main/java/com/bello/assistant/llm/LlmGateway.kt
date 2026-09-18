@@ -27,11 +27,19 @@ class LlmGateway(
     @Volatile var lastLatencyMs: Long = 0
         private set
 
-    override fun answer(question: String): Responder.Answer {
+    override fun answer(question: String): Responder.Answer = ask(question, emptyList(), "")
+
+    /**
+     * @param history earlier turns of the session (FR-MEM-01)
+     * @param extraSystem facts the user asked Bello to remember (FR-MEM-03), added to the persona
+     */
+    fun ask(question: String, history: List<LlmMessage>, extraSystem: String): Responder.Answer {
         if (providers.isEmpty()) return Responder.Answer(noProvidersMessage(), isError = true, emotion = FaceState.CONFUSED)
+        val system = Persona.system(config.persona, nowLabel()) +
+            if (extraSystem.isBlank()) "" else "\n$extraSystem"
         val request = LlmRequest(
-            system = Persona.system(config.persona, nowLabel()),
-            messages = listOf(LlmMessage.user(question)),
+            system = system,
+            messages = history + LlmMessage.user(question),
             timeoutMs = config.timeoutMs,
         )
         val skipped = mutableListOf<String>()
@@ -93,7 +101,8 @@ class LlmGateway(
     fun close() = providers.forEach { runCatching { it.close() } }
 
     /** The hidden Gemini page lives behind the face, so it follows the activity. */
-    fun attachWebHost(host: ViewGroup?) = web().forEach { it.attach(host) }
+    fun attachWebHost(host: ViewGroup?) =
+        web().forEach { it.attach(host, checkNow = providers.firstOrNull() === it) }
 
     /** FR-GWEB-10: forwarded from the activity so the hidden web page can be released. */
     fun onTrimMemory(level: Int) = web().forEach { it.onTrimMemory(level) }

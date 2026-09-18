@@ -5,6 +5,7 @@ import android.os.Handler
 import android.os.Looper
 import com.bello.assistant.core.FileLog
 import com.bello.assistant.core.Prefs
+import com.bello.assistant.tools.Ringer
 import com.bello.assistant.ui.FaceState
 import com.bello.assistant.ui.FaceView
 import com.bello.assistant.voice.SpeechInput
@@ -24,6 +25,7 @@ class Assistant(
     private val main = Handler(Looper.getMainLooper())
     private val prefs = Prefs(context)
     private val stt = SpeechInput(context, this)
+    private val ringer = Ringer(context)
     private val tts = SpeechOutput(context, this, prefs.ttsPitch, prefs.ttsRate)
 
     private var turn = Turn.IDLE
@@ -40,6 +42,10 @@ class Assistant(
     // --- Input ---------------------------------------------------------------------------------
 
     fun onTap() {
+        if (ringer.isRinging) {
+            stopRinging("tap")
+            return
+        }
         when (ConversationPolicy.onTap(turn)) {
             ConversationPolicy.TapAction.START_LISTENING -> startListening(Turn.LISTENING)
             ConversationPolicy.TapAction.STOP_SPEAKING -> {
@@ -74,6 +80,32 @@ class Assistant(
         FileLog.i(TAG, "voice pitch=$pitch rate=$rate")
     }
 
+    /** A timer or an alarm went off (FR-TOOL-04): ring, look alert, say what it was about. */
+    fun ring(text: String) {
+        cancelTimers()
+        stt.cancel()
+        tts.stop()
+        ringer.start()
+        face.showUser("")
+        face.setState(FaceState.ALERT)
+        // As an expression rather than a state, the alert stays visible while Bello speaks and
+        // then listens for "stop" (FR-TOOL-04).
+        face.setEmotion(FaceState.ALERT)
+        lastAnswerWasError = false
+        currentUtterance = tts.speak(SpeechText.forSpeech(text))
+        face.showAnswer(text)
+        turn = Turn.SPEAKING
+        FileLog.i(TAG, "ringing: $text")
+    }
+
+    fun stopRinging(reason: String) {
+        if (!ringer.isRinging) return
+        ringer.stop(reason)
+        tts.stop()
+        face.setEmotion(null)
+        setTurn(Turn.IDLE)
+    }
+
     /** Speaks a sentence without a question, for testing the voice from the Mac. */
     fun speakNow(text: String) {
         face.showUser("")
@@ -89,6 +121,7 @@ class Assistant(
     }
 
     fun release() {
+        ringer.stop("release")
         cancelTimers()
         stt.release()
         tts.shutdown()
@@ -101,6 +134,7 @@ class Assistant(
         }
         cancelTimers()
         tts.stop()
+        if (next == Turn.LISTENING) retriedBusy = false
         setTurn(next)
         // A follow-up keeps the answer on screen; a new question starts from a clean slate.
         if (next != Turn.FOLLOW_UP) face.showAnswer("")
@@ -126,6 +160,12 @@ class Assistant(
     }
 
     override fun onFailure(failure: SpeechInput.Failure) {
+        // The recognizer reports the cancellation we asked for. If we have moved on — a typed
+        // question, an alarm, a barge-in — that is not a failure to tell the user about.
+        if (turn != Turn.LISTENING && turn != Turn.FOLLOW_UP) {
+            FileLog.i(TAG, "ignoring $failure in turn=$turn")
+            return
+        }
         if (failure == SpeechInput.Failure.BUSY && turn == Turn.FOLLOW_UP && !retriedBusy) {
             retriedBusy = true
             FileLog.i(TAG, "recognizer busy, retrying follow-up once")
@@ -178,6 +218,11 @@ class Assistant(
 
     private fun say(text: String, isError: Boolean, emotion: FaceState? = null) {
         lastAnswerWasError = isError
+        // "Stop" and friends are obeyed, not commented on.
+        if (text.isBlank()) {
+            setTurn(Turn.IDLE)
+            return
+        }
         val spoken = SpeechText.forSpeech(text)
         face.setEmotion(emotion)
         face.showAnswer(text)
@@ -202,7 +247,10 @@ class Assistant(
     override fun onSpeakingDone(utteranceId: String) {
         main.post {
             if (utteranceId != currentUtterance) return@post
-            if (ConversationPolicy.shouldFollowUp(turn, lastAnswerWasError, prefs.followUpMs)) {
+            if (ringer.isRinging) {
+                FileLog.i(TAG, "still ringing, waiting for a tap or \"stop\"")
+                startListening(Turn.FOLLOW_UP, AFTER_SPEECH_PAUSE_MS)
+            } else if (ConversationPolicy.shouldFollowUp(turn, lastAnswerWasError, prefs.followUpMs)) {
                 FileLog.i(TAG, "follow-up window ${prefs.followUpMs} ms")
                 startListening(Turn.FOLLOW_UP, AFTER_SPEECH_PAUSE_MS)
                 main.postDelayed(followUpTimeout, prefs.followUpMs.toLong())

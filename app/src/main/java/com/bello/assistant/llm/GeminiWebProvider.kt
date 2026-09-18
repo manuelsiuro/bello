@@ -48,7 +48,12 @@ class GeminiWebProvider(
      * The page needs a real view tree for its own layout checks, so it lives behind the face and
      * follows the activity: attached when the face is created, released when it goes away.
      */
-    fun attach(next: ViewGroup?) {
+    /**
+     * @param checkNow load the page straight away to see whether it can be driven. Only worth it
+     *   when this provider answers first: loading costs ~45 % CPU for the time the page is open,
+     *   and a provider that is only a fallback is checked when it is actually needed.
+     */
+    fun attach(next: ViewGroup?, checkNow: Boolean = false) {
         if (next == null) {
             releaseView()
             host = null
@@ -57,7 +62,7 @@ class GeminiWebProvider(
         if (host === next) return
         releaseView()
         host = next
-        warmUp()
+        if (checkNow) warmUp()
     }
 
     /**

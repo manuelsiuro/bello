@@ -5,7 +5,7 @@
 | Status | v1.0 — in build; see [§11 Implementation status](#11-implementation-status) |
 | Date | 2026-09-17 (status updated 2026-09-18) |
 | Target device | Samsung Galaxy Tab 4 10.1 SM-T530 — see [device-galaxy-tab4.md](device-galaxy-tab4.md) |
-| Progress | [implementation-plan.md](implementation-plan.md) — Phases 0–3 done, Phase 4 next |
+| Progress | [implementation-plan.md](implementation-plan.md) — Phases 0–4 done, Phase 5 next |
 
 ## 1. Purpose
 
@@ -317,8 +317,8 @@ Requirement families against the phases that deliver them (2026-09-18).
 | FR-ON (always on, boot, kiosk), FR-FACE (face, states) | 1 | ✅ built and verified on the tablet |
 | FR-CONV (conversation), FR-STT, FR-TTS | 2 | ✅ built; wake word itself is FR-WAKE, Phase 5 |
 | FR-LLM (providers, fallback), FR-GWEB (Gemini Web), FR-DIAG-02 (overlay) | 3 | ✅ built |
-| FR-MEM (memory), FR-TOOL (clock, timers, alarms, weather, news) | 4 | ☐ next |
-| FR-WAKE (wake word "Bello") | 5 | ☐ spike passed with a caveat (4.3 false wakes/hour) |
+| FR-MEM (memory), FR-TOOL (clock, timers, alarms, weather, news) | 4 | ✅ built |
+| FR-WAKE (wake word "Bello") | 5 | ☐ next — spike passed with a caveat (4.3 false wakes/hour) |
 | FR-PRES (presence), FR-ON-06 (night mode), FR-SET (settings, config import) | 6 | ☐ |
 | NFR-REL, NFR-PERF, acceptance criteria run | 7 | ☐ |
 
@@ -331,6 +331,9 @@ Requirement families against the phases that deliver them (2026-09-18).
 | FR-GWEB-06 (hourly health check) | Checked when the face starts and after a release; a page that cannot be driven is skipped for 30 minutes. An hourly check would mean loading the page hourly, at the CPU cost above, for no benefit while other providers work. |
 | FR-LLM-02 (presets) | Preset model names go stale — two were already retired 404s. The config file overrides the model, and `scripts/models.sh` lists what a key accepts. |
 | FR-CONV-08 (≤ 3 sentences) | Enforced by the persona prompt, not by truncation, so answers are never cut mid-sentence. |
+| FR-TOOL-07 (live web info) | Not routed automatically. Gemini's compatibility endpoint refuses search grounding (`Unknown name "google_search"`) and Groq's search model refused the request, so fresh information comes from the news tool or from the Gemini Web provider, which searches by itself. |
+| FR-TOOL-08 (function calling) | Every tool is matched locally, in French, before any provider is called: it is instant, it works with no key and no network, and it cannot be talked out of setting a timer. LLM function calling would add a network round trip to "quelle heure est-il ?". |
+| FR-MEM-04 (delete in settings) | By voice only for now ("oublie…"); the settings screen arrives in Phase 6. |
 
 ## 12. Glossary
 

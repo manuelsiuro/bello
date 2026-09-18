@@ -269,7 +269,7 @@ Phase 5 can start after Phase 2 (needs mic arbitration with STT/TTS). Phase 6 ca
 |---|---|
 | ~~Before Phase 3~~ | ✅ Provided 2026-09-18: Gemini (AI Studio) and Groq keys, in `config/bello.local.json` |
 | Phase 1 (optional) | Face design direction, or keep the SP-06 placeholder |
-| Phase 5 | A few evenings of TV/radio near the tablet and real "Bello" utterances at several distances |
+| **Phase 5 (needed next)** | A few evenings with the tablet where it will live, TV or radio on, and real "Bello" utterances at several distances — this is what decides whether the wake word can meet its false-wake target |
 | Phase 7 | Smart plug or charging schedule decision |
 
 ## 6. Key risks carried from the spikes

@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Phases 0–6 done · Phase 7: 11 of 12 criteria pass, the 7-day soak restarted 2026-09-18 15:39 by the Phase 8 install · Phase 8 (the details on the phone) built and verified on the tablet |
+| Status | Phases 0–6 done · Phase 7: 11 of 12 criteria pass, the 7-day soak restarted by the Phase 9 install · Phase 8 (the details on the phone) built and verified · Phase 9 (the television) built, keys to be checked on the screen |
 | Date | 2026-09-18 |
 | Inputs | [requirements.md](requirements.md) · [feasibility-results.md](feasibility-results.md) · [device-galaxy-tab4.md](device-galaxy-tab4.md) |
 | Target | Galaxy Tab 4 SM-T530, Android 5.0.2 (API 21), `armeabi-v7a`, serial `e3572b180497ec75` |
@@ -437,6 +437,23 @@ P0 ─▶ P1 ─▶ P2 ─▶ P3 ─▶ P4 ─▶ P7
 Phase 5 can start after Phase 2 (needs mic arbitration with STT/TTS). Phase 6 can run in parallel with Phases 3–5 after Phase 1.
 Phase 8 needs Phase 4 (the Router and the gateway) and Phase 1 (the face); it was added after Phase 7 and does not gate it.
 
+### Phase 9 — The television
+
+The SFR TV decoder in the house, driven the way the SFR TV app drives it: [sfr-tv-box.md](sfr-tv-box.md).
+
+| # | Task | Done |
+|---|---|---|
+| P9-1 | `tools/TvBox`: the STB8 protocol (pure, tested on the box's real replies) and a client that opens one WebSocket per command | ☑ |
+| P9-2 | `assistant/Intents`: power, channel by number, by number word and by name, next/previous, volume, mute, pause and the other keys, status — in French, with the channel table from `config.json` | ☑ |
+| P9-3 | `assistant/ToolReplies`: the short spoken confirmations; `Router`: the branch, « je n'arrive pas à joindre le décodeur » when the box does not answer | ☑ |
+| P9-4 | `core/AppConfig`: `tvBox` (host `stb`, port 7682, `channels` = TNT numbering since June 2025, `okAfterDigits`, `enabled`) | ☑ |
+| P9-5 | `scripts/tv.sh`: the box from the Mac (`status`, `on`, `off`, `key`, `channel`) and through Bello (`ask`) | ☑ |
+| P9-6 | Every key name checked on the television, `power` from standby with and without CEC, channel entry with two digits | ☐ needs someone in front of the television |
+
+**Done when:** « la télé est allumée ? » is answered from the box's state; « mets la 3 » changes the channel on the screen; « éteins la télé » puts the decoder in standby and « allume la télé » brings it back, each within 1.5 s (NFR-PERF-03).
+
+**Result (2026-09-18):** built, 186 JVM unit tests pass (174 before), installed on the tablet. The status question is answered from the box in the room; the keys wait for the television to be watched (P9-6) — the box acknowledges any key name, so only the screen can confirm them.
+
 ## 5. Inputs needed from the user
 
 | When | Input |
@@ -467,12 +484,12 @@ twelfth is the seven-day unattended run, started 2026-09-18 11:44 (`scripts/soak
 |---|---|
 | Answering | Gemini 1.2–2.1 s, Groq 0.6 s, fallback on quota or failure, key-free Gemini Web behind them |
 | The details on the phone | the offer after a recipe or a how-to; "oui" by voice → a page written in 0.9–4.8 s, served by the tablet, read on a phone from the QR code on the face |
-| Doing it itself | the clock in 19–34 ms, timers and alarms, weather in ~1 s, headlines, memory across restarts |
+| Doing it itself | the clock in 19–34 ms, timers and alarms, weather in ~1 s, headlines, memory across restarts, the television's state from the decoder in 323 ms |
 | Hearing its name | 14–16 of 20 calls across a room, 0 false wakes in 21.4 min of continuous French |
 | Cost, everything running | 12–16 % CPU, 33–34 °C, ~167 MB (budgets: 35 %, 42 °C, 350 MB) |
 | Cost, face alone | 6 % CPU, 67 MB |
 | Recovering | crash → back in ~1 s with a backing-off restart; reboot → face 4 s after `BOOT_COMPLETED`, alarms re-armed; network gone → local tools keep working, answers in 6 ms, resumes by itself |
-| Tests | 174 JVM unit tests (135 before Phase 8) |
+| Tests | 186 JVM unit tests (174 before Phase 9) |
 
 **Still open, and recorded as such:**
 
@@ -482,8 +499,13 @@ twelfth is the seven-day unattended run, started 2026-09-18 11:44 (`scripts/soak
    `room 30` re-checks false wakes with the television on — worth doing because the distance
    compensation was added after the false-wake measurement.
 3. **The battery**, which is a decision rather than a task: see "Inputs needed from the user".
-4. **Phase 8 is on the tablet** since 2026-09-18 15:39, on the branch `feature/qr-page`; the
-   install restarted the soak clock (`scripts/soak.sh start` resets the report's baseline).
+4. **Phase 9 is on the tablet** since 2026-09-18 17:59, and its install restarted the soak clock
+   again (`scripts/soak.sh start` resets the report's baseline).
+5. **The television's keys.** The decoder says `OK` to any key name, so every key but `mute` is
+   confirmed only by watching the screen: ten minutes with `scripts/tv.sh` (P9-6), plus the
+   household's channel names for `tvBox.channels` if they differ from the TNT table.
+6. **Which free services to add next**: the study in [free-services.md](free-services.md) ranks
+   thirteen features that need no sign-up and six that need a free one; the choice is the owner's.
 
 **If someone picks this up later**, the two habits that caught the most problems were re-running
 the acceptance criteria against the build in hand rather than trusting the last phase's result —

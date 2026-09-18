@@ -123,4 +123,18 @@ class ToolRepliesTest {
         assertTrue(prompt.contains("- Un titre"))
         assertTrue(prompt.contains("trois phrases"))
     }
+
+    // --- The television -----------------------------------------------------------------------
+
+    @Test fun `television replies are short and say what was done`() {
+        assertEquals("J'allume la télé.", ToolReplies.tvPower(on = true, already = false))
+        assertEquals("La télé est déjà allumée.", ToolReplies.tvPower(on = true, already = true))
+        assertEquals("J'éteins la télé.", ToolReplies.tvPower(on = false, already = false))
+        assertEquals("Je mets la 2, France 2.", ToolReplies.tvChannel(2, "France 2"))
+        assertEquals("Je mets la 12.", ToolReplies.tvChannel(12, null))
+        assertEquals("Chaîne suivante.", ToolReplies.tvChannelStep(up = true))
+        assertEquals("Chut.", ToolReplies.tvMute(silence = true))
+        assertEquals("La télé est éteinte.", ToolReplies.tvStatus(on = false))
+        assertEquals("Je n'arrive pas à joindre le décodeur télé.", ToolReplies.tvUnreachable())
+    }
 }

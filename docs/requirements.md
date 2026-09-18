@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Status | v1.0 — in build; see [§11 Implementation status](#11-implementation-status) |
-| Date | 2026-09-17 (status updated 2026-09-18) |
+| Date | 2026-09-17 (status updated 2026-09-18, evening) |
 | Target device | Samsung Galaxy Tab 4 10.1 SM-T530 — see [device-galaxy-tab4.md](device-galaxy-tab4.md) |
-| Progress | [implementation-plan.md](implementation-plan.md) — Phases 0–4 done, Phase 5 next |
+| Progress | [implementation-plan.md](implementation-plan.md) — Phases 0–9 built; the soak (Phase 7) runs; the television's keys (Phase 9) wait for a look at the screen |
 
 ## 1. Purpose
 
@@ -19,6 +19,7 @@ Turn the Galaxy Tab 4 into an always-on, French-speaking AI assistant with a Min
 - Animated Minion face with state-driven expressions.
 - Multi-provider LLM access (free tiers) with automatic fallback, including an experimental Gemini Web provider.
 - Local tools: clock, timers, alarms, weather, news, web information, conversation memory.
+- The television: the SFR decoder driven over the home network, the way the SFR TV app does it (added 2026-09-18).
 - Camera-based presence detection.
 - Always-on kiosk-like behavior with night mode.
 - Settings screen and JSON config import/export.
@@ -26,7 +27,7 @@ Turn the Galaxy Tab 4 into an always-on, French-speaking AI assistant with a Min
 **Out of scope (v1)**
 - Languages other than French.
 - Children-specific safety modes (adults only).
-- Smart-home control, music playback, phone calls, messaging.
+- Smart-home control beyond the television, music playback, phone calls, messaging.
 - Paid services of any kind.
 - Termux or any separate server process on the tablet.
 - Cloud-hosted backend.
@@ -253,6 +254,19 @@ Priority: **M** = must (v1), **S** = should (v1 if feasible), **C** = could (lat
 | FR-PAGE-05 | The face shows the QR code of the URL with a caption and the URL for three minutes at full brightness, night or not; a tap on the card, "stop", a newer page or the timeout hides it — never the next question. Bello announces the page aloud when it is idle. | S |
 | FR-PAGE-06 | Without a Wi-Fi address, or when the provider fails, Bello says so in one sentence and drops the offer. | S |
 
+### 6.15 The television
+
+Added 2026-09-18 after the study in [sfr-tv-box.md](sfr-tv-box.md): the SFR decoder in the house (an STB8) takes the same JSON-over-WebSocket remote commands as the SFR TV app, on the LAN, with no pairing and no key.
+
+| ID | Requirement | Pri |
+|---|---|---|
+| FR-TV-01 | « Allume / éteins la télé » switches the decoder on or off. The power key is a toggle, so Bello reads the state first and only presses when it has to; « la télé est déjà allumée » otherwise. | S |
+| FR-TV-02 | « Mets la 3 », « mets la douze », « mets TF1 », « passe sur France 2 » change the channel: by number, by number word, or by a name from a channel table in the configuration (the TNT numbering by default, replaceable as a whole). A name that is not in the table is left to the model, never guessed. | S |
+| FR-TV-03 | « Chaîne suivante / précédente », « monte / baisse le son » (three presses; « un peu » one, « à fond » six), « coupe / remets le son », « pause », « lecture », « retour », « menu », and « la télé est allumée ? » are handled locally, like every other tool. | S |
+| FR-TV-04 | « Stop la télé » and « arrête la télé » are the television; « stop » alone still stops Bello. | S |
+| FR-TV-05 | The box is reached by its LAN name (`stb`) or an address in the configuration; when it does not answer within 1.5 s Bello says so in one sentence. Replies are one short sentence: the television is already making the noise. | S |
+| FR-TV-06 | Local intents answer within NFR-PERF-03 (1.5 s); the measured exchange with the box is about 10 ms. | S |
+
 ## 7. Non-functional requirements
 
 | ID | Category | Requirement |
@@ -336,6 +350,7 @@ Requirement families against the phases that deliver them (2026-09-18).
 | NFR-REL-02 (network loss), FR-DIAG (logs, overlay), NFR-HW-01 (battery care) | 7 | ✅ built and verified |
 | NFR-REL-01 (seven days unattended), acceptance criteria run | 7 | ◐ 11 of 12 criteria pass; the soak is running |
 | FR-PAGE (the details on the phone), NFR-SEC-03 | 8 | ✅ built and verified on the tablet: a spoken "oui", a page in 0.9–4.8 s, read on a phone from the code |
+| FR-TV (the television) | 9 | ◐ built and on the tablet: « la télé est allumée ? » answered from the box in 323 ms; the keys other than `mute` wait for someone in front of the screen, because the box acknowledges any key name |
 
 **Deviations decided while building**
 

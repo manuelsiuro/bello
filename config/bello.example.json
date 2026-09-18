@@ -25,5 +25,18 @@
       "preset": "geminiweb",
       "enabled": false
     }
-  ]
+  ],
+  "_tvBox": "The SFR TV decoder (docs/sfr-tv-box.md). On by default at the box name \"stb\"; \"channels\" replaces the whole table; \"enabled\": false turns it off.",
+  "tvBox": {
+    "host": "stb",
+    "port": 7682,
+    "okAfterDigits": false,
+    "channels": {
+      "TF1": 1,
+      "France 2": 2,
+      "France 3": 3,
+      "Arte": 7,
+      "M6": 6
+    }
+  }
 }

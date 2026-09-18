@@ -224,7 +224,7 @@ the answer is spoken when it is complete.
 | P5-1 | Production wake listener (energy gate, pre-roll, onset-relative timing) + `WakeWordDecision` rule as a pure, unit-tested class | ☑ |
 | P5-2 | Microphone arbitration: pause wake word during STT and TTS (FR-WAKE-04, 05) | ☑ |
 | P5-3 | Provisional wake: open STT; if no speech follows, return to idle silently | ☑ |
-| P5-4 | Validation and tuning on audio the rule has never seen; fallback "Salut Bello" if needed | ◐ |
+| P5-4 | Validation and tuning on audio the rule has never seen; fallback "Salut Bello" if needed | ◐ — tuned; the real-room half needs a voice, and `scripts/wake-live.sh` is the three-minute way to give it one |
 | P5-5 | Sensitivity and enable/disable settings (FR-WAKE-02, 03) | ☑ |
 
 **Done when:** in the real home, detection ≥ 80 % and false wakes ≤ 1 / hour; idle CPU with wake word ≤ 35 %.
@@ -305,7 +305,7 @@ Phase 5 can start after Phase 2 (needs mic arbitration with STT/TTS). Phase 6 ca
 |---|---|
 | ~~Before Phase 3~~ | ✅ Provided 2026-09-18: Gemini (AI Studio) and Groq keys, in `config/bello.local.json` |
 | Phase 1 (optional) | Face design direction, or keep the SP-06 placeholder |
-| **Phase 5 (needed to close it)** | A few evenings with the tablet where it will live, TV or radio on, and real "Bello" utterances at several distances. Everything else is built and tuned; what synthetic voices from a laptop speaker cannot tell us is how a real voice scores in that room. Run `scripts/wake-test.sh score` afterwards and the thresholds follow from the numbers |
+| **Phase 5 (needed to close it)** | Three minutes of your own voice — `scripts/wake-live.sh calls 10` prompts you to say "Bello" ten times and prints the detection rate — and, when convenient, `scripts/wake-live.sh room 30` with the television on for the false-wake half. Nothing is played from the Mac; the tablet listens to the room it lives in, and `scripts/wake-test.sh score` then picks thresholds from what it heard |
 | Phase 7 | Smart plug or charging schedule decision |
 
 ## 6. Key risks carried from the spikes

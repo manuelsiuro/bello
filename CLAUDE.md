@@ -40,7 +40,8 @@ scripts/fallback-test.sh    # forces a 429 from a fake provider and checks the f
 scripts/models.sh gemini    # list the models a configured key can actually use
 scripts/ask.sh "…"          # alias of text.sh: ask a question and print the answer from the log
 scripts/wake.sh on|off|low|normal|high|status   # the "Bello" wake word
-scripts/wake-test.sh make|background|detect|noise|score  # measure detection and false wakes
+scripts/wake-test.sh make|background|detect|noise|score  # measure with audio played from the Mac
+scripts/wake-live.sh calls 10 | room 30         # measure with a real voice, in the real room
 ```
 
 API keys: copy `config/bello.example.json` to `config/bello.local.json` (git-ignored), add your free

@@ -106,6 +106,16 @@ Home screen: after installing, press Home on the tablet and choose Bello → "Al
   anything, so a key name is only ever proven on the screen. Intents come from `assistant/Intents`
   with the channel table of `config.json` (`tvBox.channels`, TNT numbering by default); "stop la
   télé" is the television, "stop" alone is still Bello.
+- Fuel, the encyclopedia and jokes: `tools/Fuel` reads the government's live price feed around the
+  house (the coordinates come from the weather tool's geocoder) and drops any price older than a
+  week, because the dataset keeps stations that stopped reporting. `tools/Wikipedia` answers **only
+  about names** — one request does the search and the intro at once — and returns null on anything
+  else so the Router hands the question to a provider: an article describes the office, a model
+  names the president. `tools/Jokes` reads every joke before telling it (the service's own "safe"
+  flag let through a dictator and two about blondes in thirteen samples) and falls back to a small
+  bundled book, which is also what it tells with no network.
+- `tools/ToolHttp` sends a real `User-Agent`: Wikimedia's policy blocks the default agent of an
+  HTTP library, and Open Food Facts and Radio Browser ask for the same.
 - Holidays: `tools/Holidays` answers « c'est férié demain ? » and « c'est quand les vacances ? »
   from two key-free government files (`calendrier.api.gouv.fr`, `data.education.gouv.fr`). Both are
   kept in `files/cache` by `core/TextCache`, so the answer survives an outage and costs one fetch a

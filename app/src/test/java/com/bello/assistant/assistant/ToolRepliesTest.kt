@@ -1,6 +1,8 @@
 package com.bello.assistant.assistant
 
 import com.bello.assistant.core.FrenchDates
+import com.bello.assistant.tools.FuelStation
+import com.bello.assistant.tools.PastEvent
 import com.bello.assistant.tools.PublicHoliday
 import com.bello.assistant.tools.SchoolBreak
 import com.bello.assistant.memory.Fact
@@ -217,5 +219,49 @@ class ToolRepliesTest {
             ToolReplies.schoolBreak(toussaint, null, day("2026-10-20"), askingNow = true),
         )
         assertEquals(ToolReplies.schoolBreaksUnknown(), ToolReplies.schoolBreak(null, null, noon))
+    }
+
+    // --- Fuel, prices, distances, the day in history ---------------------------------------------
+
+    @Test fun `a price and a distance as they are said out loud`() {
+        assertEquals("2 euros 25", FrenchWords.sayPrice(2.25))
+        assertEquals("2 euros 15", FrenchWords.sayPrice(2.149))
+        assertEquals("1 euro", FrenchWords.sayPrice(1.0))
+        assertEquals("2 euros", FrenchWords.sayPrice(2.0))
+        assertEquals("2 euros 05", FrenchWords.sayPrice(2.05))
+        assertEquals("99 centimes", FrenchWords.sayPrice(0.99))
+        assertEquals("1,4 kilomètre", FrenchWords.sayDistance(1438))
+        assertEquals("7,3 kilomètres", FrenchWords.sayDistance(7346))
+        assertEquals("900 mètres", FrenchWords.sayDistance(880))
+        assertEquals("9,5 kilomètres", FrenchWords.sayDistance(9477))
+        assertEquals("12 kilomètres", FrenchWords.sayDistance(12400))
+    }
+
+    @Test fun `the cheapest station, without shouting its address`() {
+        assertEquals(
+            "Le gazole le moins cher est à 2 euros 25, à 1,4 kilomètre. " +
+                "C'est à Grasse, quartier moulin de brun rd 4.",
+            ToolReplies.fuel(FuelStation("gazole", 2.25, "QUARTIER MOULIN DE BRUN RD.4", "Grasse", 1438)),
+        )
+        assertEquals("87 Route de la Fènerie", ToolReplies.address("87 Route de la Fènerie"))
+        assertEquals(
+            "Je ne trouve pas de superéthanol E85 autour de Grasse en ce moment.",
+            ToolReplies.fuelNone("superéthanol E85", "Grasse"),
+        )
+    }
+
+    @Test fun `what happened on a day`() {
+        assertEquals(
+            "Un 18 septembre : en 1981, loi sur l'abolition de la peine de mort votée ; " +
+                "en 1998, formation de l'ICANN.",
+            ToolReplies.onThisDay(
+                listOf(
+                    PastEvent(1981, "loi sur l'abolition de la peine de mort votée"),
+                    PastEvent(1998, "formation de l'ICANN"),
+                    PastEvent(1851, "première publication du New York Times"),
+                ),
+                day("2026-09-18"),
+            ),
+        )
     }
 }

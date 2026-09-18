@@ -187,6 +187,10 @@ Priority: **M** = must (v1), **S** = should (v1 if feasible), **C** = could (lat
 | FR-TOOL-07 | **Web info:** questions needing current information use a search-capable provider (Gemini API grounding, Groq compound, or Gemini Web). | S |
 | FR-TOOL-10 | **Public holidays:** « c'est quand le prochain jour férié ? » and « c'est férié demain ? » are answered from `calendrier.api.gouv.fr` for the configured zone. The year's list is kept on the tablet: it never changes, and the answer must survive an outage. | S |
 | FR-TOOL-11 | **School holidays:** « c'est quand les vacances ? », « on est en vacances ? » and a named break (« les vacances de Noël ») are answered from the ministry's calendar for the household's zone and académie, kept for a week. The answer says when the break starts and when classes resume. | S |
+| FR-TOOL-12 | **Fuel prices:** « où est le gazole le moins cher ? » is answered from the government's live feed within ten kilometres of the house, or of a town named in the question. The fuel can be named, otherwise the household's usual one is used; prices left untouched for more than a week are ignored. | S |
+| FR-TOOL-13 | **Encyclopedia:** a question about a **name** ("qui est Marie Curie ?", "c'est quoi Grasse ?") is answered from French Wikipedia, trimmed to what a voice can read. A question about anything else, or one the encyclopedia cannot answer, goes to a provider as usual. | S |
+| FR-TOOL-14 | **Jokes:** « raconte-moi une blague » tells a French joke, filtered locally against a blocklist because the service's own "safe" flag cannot be trusted, with a small bundled book as the fallback and for when there is no network. | C |
+| FR-TOOL-15 | **The day in history:** « que s'est-il passé un 18 septembre ? » gives two events from Wikipedia's own feed, kept for the day. | C |
 | FR-TOOL-08 | Tool routing: simple intents (time, timers, alarms, stop) are matched locally first; other tools are selected by LLM function calling where the provider supports it, else by local keyword intent matching. | M |
 | FR-TOOL-09 | Tool results are formatted into short French sentences for speech. | M |
 
@@ -353,6 +357,7 @@ Requirement families against the phases that deliver them (2026-09-18).
 | NFR-REL-01 (seven days unattended), acceptance criteria run | 7 | ◐ 11 of 12 criteria pass; the soak is running |
 | FR-PAGE (the details on the phone), NFR-SEC-03 | 8 | ✅ built and verified on the tablet: a spoken "oui", a page in 0.9–4.8 s, read on a phone from the code |
 | FR-TOOL-10/11 (public and school holidays) | 10 | ✅ built and verified on the tablet: the next jour férié, "c'est férié demain ?", the next school break and a named one, each in well under a second, kept on the tablet afterwards |
+| FR-TOOL-12/15 (fuel, encyclopedia, jokes, the day in history) | 11 | ✅ built and verified on the tablet |
 | FR-TV (the television) | 9 | ◐ built and on the tablet: « la télé est allumée ? » answered from the box in 323 ms; the keys other than `mute` wait for someone in front of the screen, because the box acknowledges any key name |
 
 **Deviations decided while building**

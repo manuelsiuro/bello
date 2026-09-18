@@ -10,8 +10,13 @@ import java.util.concurrent.TimeUnit
  * Fetching for the tools. Free public services hiccup — Open-Meteo answered 503 once in testing —
  * and losing an answer to a single blip is not acceptable when someone is waiting for it, so a
  * server error or a dropped connection is tried once more.
+ *
+ * Every request says who is calling: Wikimedia's policy asks for a real name and a contact and
+ * blocks the default agent of an HTTP library, and Open Food Facts and Radio Browser ask the same.
  */
 object ToolHttp {
+
+    const val USER_AGENT = "Bello/1.0 (+https://github.com/manuelsiuro/bello)"
 
     private const val RETRY_DELAY_MS = 700L
 
@@ -34,7 +39,8 @@ object ToolHttp {
         val client = HttpClients.base(context).newBuilder()
             .callTimeout(timeoutSeconds, TimeUnit.SECONDS)
             .build()
-        client.newCall(Request.Builder().url(url).build()).execute().use { response ->
+        val request = Request.Builder().url(url).header("User-Agent", USER_AGENT).build()
+        client.newCall(request).execute().use { response ->
             if (response.isSuccessful) return@runCatching response.body?.string()
             FileLog.w(tag, "http=${response.code} (try ${attempt + 1}) for ${url.take(120)}")
             null

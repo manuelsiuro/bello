@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Phases 0–8 done · Phase 7: 11 of 12 criteria pass, the soak restarted by the Phase 10 install · Phase 9 (the television) built, keys to be checked on the screen · Phase 10 (the two calendars) built and verified |
+| Status | Phases 0–8 done · Phase 7: 11 of 12 criteria pass, the soak restarted by the Phase 10 install · Phase 9 (the television) built, keys to be checked on the screen · Phases 10 and 11 (the two calendars, then fuel, Wikipedia and jokes) built and verified |
 | Date | 2026-09-18 |
 | Inputs | [requirements.md](requirements.md) · [feasibility-results.md](feasibility-results.md) · [device-galaxy-tab4.md](device-galaxy-tab4.md) |
 | Target | Galaxy Tab 4 SM-T530, Android 5.0.2 (API 21), `armeabi-v7a`, serial `e3572b180497ec75` |
@@ -494,6 +494,47 @@ answered in **12 ms**, from the tablet alone.
   about the children.
 - **The first of the month is spoken, not abbreviated**: "dimanche premier novembre", never "1er".
 
+### Phase 11 — Fuel, the encyclopedia and jokes
+
+Three more services from the study, all key-free: the price of fuel around the house, French
+Wikipedia, and a joke.
+
+| # | Task | Done |
+|---|---|---|
+| P11-1 | `tools/Fuel`: the government's live price feed within ten kilometres, prices older than a week dropped, coordinates from the weather tool's geocoder | ☑ |
+| P11-2 | `tools/Wikipedia`: one request for the search and the intro; `WikiText` strips the pronunciation, the local spelling and the nested parentheses a voice cannot read | ☑ |
+| P11-3 | `tools/Jokes`: every joke read before it is told, a bundled book behind it | ☑ |
+| P11-4 | `ToolHttp`: a real `User-Agent`, which Wikimedia's policy requires | ☑ |
+| P11-5 | Intents and replies: the fuel and the town, jokes, names only for the encyclopedia, the day in history; prices and distances in French words | ☑ |
+| P11-6 | The sources named in the settings screen (Wikipedia CC BY-SA, Open-Meteo, Licence Ouverte) | ☑ |
+
+**Done when:** the four questions are answered on the tablet, and a question that is not about a name still goes to a provider.
+
+**Result (2026-09-18):** built, 221 JVM unit tests pass (205 before), verified on the tablet:
+
+| Question | Answered | Took |
+|---|---|---|
+| « Où est le gazole le moins cher ? » | « à 2 euros 25, à 1,5 kilomètre. C'est à Grasse, quartier moulin de brun rd 4. » | 791 ms |
+| « Qui est Marie Curie ? » | her dates, her two Nobel prizes, in Wikipedia's own words | 571 ms |
+| « C'est quoi Grasse ? » | the commune, the department, the region | 471 ms |
+| « Raconte-moi une blague » | a French pun from the service, filtered | 454 ms |
+| « Que s'est-il passé un 18 septembre ? » | two events, 1998 and 1981 | 103 ms |
+| « Qui est le président de la République ? » | **not** the encyclopedia: Gemini named Emmanuel Macron | 1 886 ms |
+
+**The decision that matters, and why it was made that way:**
+
+- **The encyclopedia answers about names, nothing else.** An article about "le président de la
+  République" describes the office and never names the person; a model names the person. The rule
+  that separates them is the capital letter, once the determiners are stripped — and since
+  `SpeechText.forIntent` lowercases everything before the matching runs, the raw question is passed
+  down to `Intents.match` for that one check. When in doubt Bello says nothing and the provider
+  answers, so the worst case is the behaviour of yesterday.
+- **The service's "safe" flag is not trusted.** Thirteen samples taken while choosing it included
+  one about a dictator and two about blondes, all flagged safe. Every joke is read locally against
+  a blocklist, and a refusal is logged as `JOKE_REFUSED`.
+- **A fuel price older than a week is not a price.** The dataset keeps stations that stopped
+  reporting, and sending somebody across town for last month's price is worse than saying nothing.
+
 ## 5. Inputs needed from the user
 
 | When | Input |
@@ -529,7 +570,7 @@ twelfth is the seven-day unattended run, started 2026-09-18 11:44 (`scripts/soak
 | Cost, everything running | 12–16 % CPU, 33–34 °C, ~167 MB (budgets: 35 %, 42 °C, 350 MB) |
 | Cost, face alone | 6 % CPU, 67 MB |
 | Recovering | crash → back in ~1 s with a backing-off restart; reboot → face 4 s after `BOOT_COMPLETED`, alarms re-armed; network gone → local tools keep working, answers in 6 ms, resumes by itself |
-| Tests | 205 JVM unit tests (186 before Phase 10) |
+| Tests | 221 JVM unit tests (205 before Phase 11) |
 
 **Still open, and recorded as such:**
 
@@ -546,7 +587,8 @@ twelfth is the seven-day unattended run, started 2026-09-18 11:44 (`scripts/soak
    household's channel names for `tvBox.channels` if they differ from the TNT table.
 6. **Which free services to add next**: the study in [free-services.md](free-services.md) ranks
    thirteen features that need no sign-up and six that need a free one. The two calendars are
-   built (Phase 10); the rest is the owner's choice.
+   built (Phase 10), and so are the fuel prices, Wikipedia and the jokes (Phase 11); the rest is
+   the owner's choice.
 
 **If someone picks this up later**, the two habits that caught the most problems were re-running
 the acceptance criteria against the build in hand rather than trusting the last phase's result —

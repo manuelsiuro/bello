@@ -68,13 +68,13 @@ the spoken sentence in §5–6 comes from the real response.
 |---|---|---|---|
 | 1 | « Qui a gagné hier soir ? », « le prix du gazole aujourd'hui » — **questions that need today's web** (closes FR-TOOL-07) | Gemini 2.5 Flash with `google_search`, native endpoint, the key already on the tablet; 500 a day | ✅ 3.2 s, French, cited |
 | 2 | « L'air est bon ? », « il y a du pollen ? », « l'eau est à combien ? », « le soleil se couche à quelle heure ? » | Open-Meteo air quality, marine, sun and moon — extends the weather tool | ✅ 0.13–0.16 s, < 1 KB |
-| 3 | « Où est le gazole le moins cher ? » | data.economie.gouv.fr, 8 km around the house | ✅ 0.17 s, 547 B |
+| 3 | « Où est le gazole le moins cher ? » | data.economie.gouv.fr, 8 km around the house | ✅ 0.17 s, 547 B — **built, Phase 11** |
 | 4 | « Les vacances, c'est quand ? », « c'est férié demain ? » | data.education.gouv.fr, calendrier.api.gouv.fr | ✅ 465 B and 318 B — **built, Phase 10** |
 | 5 | « Demain est bleu ou rouge ? » (Tempo contracts only) | api-couleur-tempo.fr, RTE backup | ✅ 80 B |
-| 6 | « Qui est Marie Curie ? », « c'est quoi Grasse ? », « que s'est-il passé un 18 septembre ? », « ça veut dire quoi, … ? » | French Wikipedia and Wiktionary | ✅ 0.06–0.36 s |
+| 6 | « Qui est Marie Curie ? », « c'est quoi Grasse ? », « que s'est-il passé un 18 septembre ? », « ça veut dire quoi, … ? » | French Wikipedia and Wiktionary | ✅ 0.06–0.36 s — Wikipedia **built, Phase 11**; the dictionary is not |
 | 7 | « La mairie est ouverte quand ? », « combien d'habitants à Grasse ? » | Annuaire de l'administration, geo.api.gouv.fr | ✅ 659 B, 496 B |
 | 8 | « Combien de calories dans le Nutella ? » | Open Food Facts search | ✅ 0.20 s (main host flaky, search host fine) |
-| 9 | « Raconte-moi une blague » | JokeAPI, French, with a local blocklist | ✅ 395 B |
+| 9 | « Raconte-moi une blague » | JokeAPI, French, with a local blocklist | ✅ 395 B — **built, Phase 11** |
 | 10 | « Qu'est-ce qu'on fait ce week-end ? » — with the list on the phone | OpenAgenda legacy export | ✅ 53 events in Grasse |
 | 11 | « Cent dollars en euros ? » | Frankfurter | ✅ 71 B |
 | 12 | « Qui chante ça ? », a 30-second preview | iTunes Search | ✅ preview on a root the tablet trusts |

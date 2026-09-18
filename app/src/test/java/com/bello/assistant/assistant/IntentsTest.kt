@@ -8,7 +8,7 @@ import org.junit.Test
 /** Questions are written as the recognizer delivers them, then normalised like the app does. */
 class IntentsTest {
 
-    private fun match(said: String): Intent = Intents.match(SpeechText.forIntent(said))
+    private fun match(said: String): Intent = Intents.match(SpeechText.forIntent(said), raw = said)
 
     @Test fun `the clock and the date are answered locally`() {
         assertEquals(Intent.Time, match("Quelle heure est-il ?"))
@@ -75,7 +75,6 @@ class IntentsTest {
 
     @Test fun `anything else goes to a provider`() {
         assertEquals(Intent.None, match("Qui a peint la Joconde ?"))
-        assertEquals(Intent.None, match("Raconte-moi une blague"))
         assertEquals(Intent.None, match("Pourquoi le ciel est bleu ?"))
         assertEquals(Intent.None, match("Combien de temps vit une tortue ?"))
     }
@@ -83,7 +82,7 @@ class IntentsTest {
     // --- The television (docs/sfr-tv-box.md) --------------------------------------------------
 
     private val channels = mapOf("TF1" to 1, "France 2" to 2, "Arte" to 7, "L'Équipe" to 21, "Chérie 25" to 25)
-    private fun tv(said: String): Intent = Intents.match(SpeechText.forIntent(said), channels)
+    private fun tv(said: String): Intent = Intents.match(SpeechText.forIntent(said), channels, raw = said)
 
     @Test fun `the television is switched on and off`() {
         assertEquals(Intent.TvPower(on = true), tv("Allume la télé"))
@@ -170,5 +169,45 @@ class IntentsTest {
     @Test fun `a holiday told about is not a holiday asked about`() {
         assertEquals(Intent.None, match("J'ai passé de bonnes vacances à la montagne"))
         assertEquals(Intent.None, match("Raconte-moi tes plus belles vacances au bord de la mer"))
+    }
+
+    // --- Fuel, jokes, the encyclopedia ---------------------------------------------------------
+
+    @Test fun `the price of fuel, with the fuel and the town when they are said`() {
+        assertEquals(Intent.Fuel("gazole", null), match("Où est le gazole le moins cher ?"))
+        assertEquals(Intent.Fuel(null, null), match("Le carburant le moins cher ?"))
+        assertEquals(Intent.Fuel("sp98", null), match("C'est combien le sans plomb 98 ?"))
+        assertEquals(Intent.Fuel("e85", null), match("Le prix de l'E85"))
+        assertEquals(Intent.Fuel("gazole", "cannes"), match("Le gazole le moins cher à Cannes"))
+        assertEquals(Intent.Fuel(null, null), match("Où faire le plein le moins cher ?"))
+        // The word alone is not a question about a price.
+        assertEquals(Intent.None, match("C'est quoi l'essence de la vie ?"))
+    }
+
+    @Test fun `jokes`() {
+        assertEquals(Intent.Joke, match("Raconte-moi une blague"))
+        assertEquals(Intent.Joke, match("une blague !"))
+        assertEquals(Intent.Joke, match("Tu connais une blague ?"))
+        assertEquals(Intent.Joke, match("Fais-moi rire"))
+    }
+
+    @Test fun `the encyclopedia answers about names, and only about names`() {
+        assertEquals(Intent.Encyclopedia("Marie Curie"), match("Qui est Marie Curie ?"))
+        assertEquals(Intent.Encyclopedia("Grasse"), match("C'est quoi Grasse ?"))
+        assertEquals(Intent.Encyclopedia("Tour Eiffel"), match("C'est quoi la Tour Eiffel ?"))
+        assertEquals(Intent.Encyclopedia("Napoléon"), match("Parle-moi de Napoléon"))
+        assertEquals(Intent.Encyclopedia("Victor Hugo"), match("Qui était Victor Hugo ?"))
+        // A common noun, an office, a whole question: a provider answers those better.
+        assertEquals(Intent.None, match("Qui est le président de la République ?"))
+        assertEquals(Intent.None, match("C'est quoi la photosynthèse ?"))
+        assertEquals(Intent.None, match("Qui est là ?"))
+        assertEquals(Intent.None, match("Qui est le meilleur joueur de football de tous les temps ?"))
+    }
+
+    @Test fun `what happened on a day`() {
+        assertEquals(Intent.OnThisDay(null, null), match("Que s'est-il passé aujourd'hui dans l'histoire ?"))
+        assertEquals(Intent.OnThisDay(9, 18), match("Que s'est-il passé un 18 septembre ?"))
+        assertEquals(Intent.OnThisDay(5, 1), match("Il s'est passé quoi un premier mai ?"))
+        assertEquals(Intent.OnThisDay(null, null), match("Quel événement du jour ?"))
     }
 }

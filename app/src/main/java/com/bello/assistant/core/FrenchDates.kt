@@ -75,6 +75,17 @@ object FrenchDates {
         }.getOrNull()
     }
 
+    /** "septembre" → 9, "aout" → 8 (written without its accent by the matcher). */
+    fun monthNumber(name: String): Int? {
+        val wanted = name.trim().lowercase()
+        val index = MONTHS.indexOfFirst { it == wanted || strip(it) == strip(wanted) }
+        return if (index < 0) null else index + 1
+    }
+
+    private fun strip(text: String): String = buildString {
+        for (c in text) append(when (c) { 'é', 'è', 'ê' -> 'e'; 'û', 'ù' -> 'u'; 'à' -> 'a'; else -> c })
+    }
+
     fun weekday(millis: Long): String = WEEKDAYS[calendar(millis).get(Calendar.DAY_OF_WEEK) - 1]
 
     fun month(millis: Long): String = MONTHS[calendar(millis).get(Calendar.MONTH)]

@@ -21,6 +21,8 @@ data class AppConfig(
     /** The school holiday zone and académie of the house (Grasse is Nice, zone B). */
     val schoolZone: String = "Zone B",
     val schoolAcademy: String = "Nice",
+    /** The fuel the house buys, when a question does not name one. */
+    val fuel: String = "gazole",
     /** The SFR TV decoder (docs/sfr-tv-box.md); null when `"tvBox": {"enabled": false}`. */
     val tvBox: TvBoxConfig? = TvBoxConfig(),
 ) {
@@ -106,6 +108,7 @@ data class AppConfig(
                 holidayZone = root.optString("holidayZone").ifBlank { "metropole" },
                 schoolZone = root.optString("schoolZone").ifBlank { "Zone B" },
                 schoolAcademy = root.optString("schoolAcademy").ifBlank { "Nice" },
+                fuel = root.optString("fuel").ifBlank { "gazole" },
                 tvBox = TvBoxConfig.parse(root.optJSONObject("tvBox")),
             )
         }

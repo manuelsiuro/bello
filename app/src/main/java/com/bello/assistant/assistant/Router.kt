@@ -10,20 +10,24 @@ import com.bello.assistant.memory.BelloDb
 import com.bello.assistant.memory.FactStore
 import com.bello.assistant.memory.SessionMemory
 import com.bello.assistant.tools.Alarms
+import com.bello.assistant.tools.Fuel
+import com.bello.assistant.tools.FuelData
 import com.bello.assistant.tools.HolidayData
 import com.bello.assistant.tools.Holidays
+import com.bello.assistant.tools.Jokes
 import com.bello.assistant.tools.News
 import com.bello.assistant.tools.PagePublisher
 import com.bello.assistant.tools.Schedule
 import com.bello.assistant.tools.TvBox
 import com.bello.assistant.tools.TvBoxProtocol
 import com.bello.assistant.tools.Weather
+import com.bello.assistant.tools.Wikipedia
 import com.bello.assistant.ui.FaceState
 import com.bello.assistant.voice.SpeechText
 
 /**
  * Decides who answers (FR-TOOL-08): Bello itself for the clock, timers, alarms, the weather, the
- * holidays, the news, the television and its own memory — a provider for everything else, with the conversation
+ * holidays, the news, the television, the price of fuel and its own memory — a provider for everything else, with the conversation
  * so far and the remembered facts attached (FR-MEM-01/03). When an answer is really a page, it offers the
  * details on the phone and waits for a yes (FR-PAGE-01/02).
  */
@@ -58,6 +62,9 @@ class Router(
     private val weather = Weather(app)
     private val news = News(app)
     private val holidays = Holidays(app)
+    private val fuel = Fuel(app)
+    private val jokes = Jokes(app)
+    private val wikipedia = Wikipedia(app)
     private val tv: TvBox? = config.tvBox?.let { TvBox(app, it.host, it.port) }
 
     /** The offer the next utterance may be answering. Lost with the Router on a config reload. */
@@ -78,8 +85,13 @@ class Router(
                 YesNo.Reply.OTHER -> FileLog.i(TAG, "PAGE_DROPPED reason=other")
             }
         }
-        val intent = Intents.match(forIntent, config.tvBox?.channels ?: emptyMap())
-        if (intent != Intent.None) {
+        val intent = Intents.match(forIntent, config.tvBox?.channels ?: emptyMap(), raw = question)
+        if (intent is Intent.Encyclopedia) {
+            FileLog.i(TAG, "intent=Encyclopedia")
+            // Nothing in the encyclopedia is not an answer: the question goes on to a provider.
+            encyclopedia(intent)?.let { return it }
+            FileLog.i(TAG, "nothing on Wikipedia, asking a provider")
+        } else if (intent != Intent.None) {
             FileLog.i(TAG, "intent=${intent.javaClass.simpleName}")
             return handle(intent, now)
         }
@@ -228,6 +240,11 @@ class Router(
         is Intent.PublicHolidays -> publicHolidays(intent, now)
         is Intent.SchoolHolidays -> schoolHolidays(intent, now)
 
+        is Intent.Joke -> say(jokes.tell(isOnline()), FaceState.HAPPY)
+        is Intent.Fuel -> fuel(intent, now)
+        is Intent.OnThisDay -> onThisDay(intent, now)
+        is Intent.Encyclopedia -> encyclopedia(intent) ?: offline(ToolReplies.offline())
+
         is Intent.Remember -> {
             facts.add(intent.fact, now)
             say(ToolReplies.remembered(intent.fact), FaceState.HAPPY)
@@ -305,6 +322,35 @@ class Router(
         val next = HolidayData.nextBreak(wanted, now)
         if (current == null && next == null) return offline(ToolReplies.schoolBreaksUnknown())
         return say(ToolReplies.schoolBreak(current, next, now, intent.askingNow), FaceState.HAPPY)
+    }
+
+    /** The cheapest station around the house, or around the town the question named. */
+    private fun fuel(intent: Intent.Fuel, now: Long): Responder.Answer {
+        if (!isOnline()) return offline(ToolReplies.offline())
+        val wanted = intent.fuel ?: config.fuel
+        val town = intent.city ?: config.city
+        val place = weather.place(town) ?: return offline(ToolReplies.fuelUnknownPlace(town))
+        val station = fuel.cheapest(place.latitude, place.longitude, wanted, now)
+            ?: return offline(ToolReplies.fuelNone(FuelData.spoken(wanted), place.name))
+        return say(ToolReplies.fuel(station), FaceState.HAPPY)
+    }
+
+    private fun onThisDay(intent: Intent.OnThisDay, now: Long): Responder.Answer {
+        if (!isOnline()) return offline(ToolReplies.offline())
+        val calendar = FrenchDates.calendar(now)
+        val month = intent.month ?: (calendar.get(java.util.Calendar.MONTH) + 1)
+        val day = intent.day ?: calendar.get(java.util.Calendar.DAY_OF_MONTH)
+        val events = wikipedia.onThisDay(month, day)
+        if (events.isEmpty()) return offline(ToolReplies.offline())
+        val asked = FrenchDates.parseDay(String.format("%04d-%02d-%02d", FrenchDates.year(now), month, day)) ?: now
+        return say(ToolReplies.onThisDay(events, asked))
+    }
+
+    /** Null when the encyclopedia has nothing to say, so that a provider can try. */
+    private fun encyclopedia(intent: Intent.Encyclopedia): Responder.Answer? {
+        if (!isOnline()) return null
+        val article = wikipedia.about(intent.subject) ?: return null
+        return say(ToolReplies.article(article))
     }
 
     /** Headlines are facts; turning them into two or three spoken sentences is a provider's job. */

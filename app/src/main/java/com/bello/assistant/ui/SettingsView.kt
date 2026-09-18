@@ -180,6 +180,14 @@ class SettingsView(
         }
         time("Code d'accès (vide = aucun)", prefs.settingsPin, hint = "1234") { prefs.settingsPin = it }
 
+        section("Sources")
+        note(
+            "Météo et qualité de l'air : Open-Meteo (CC BY 4.0). " +
+                "Encyclopédie : Wikipédia en français (CC BY-SA). " +
+                "Jours fériés, vacances scolaires, prix des carburants : services publics " +
+                "(Licence Ouverte 2.0). Blagues : JokeAPI."
+        )
+
         status = TextView(context).apply {
             textSize = 16f
             setTextColor(Color.rgb(255, 214, 0))

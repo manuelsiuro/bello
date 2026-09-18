@@ -171,4 +171,25 @@ object FrenchWords {
     /** Speaks a clock time back the French way: 7:30 → "7 heures 30", 8:00 → "8 heures". */
     fun sayClock(hour: Int, minute: Int): String =
         if (minute == 0) "$hour heures" else "$hour heures $minute"
+
+    /** "2 euros 25", "1 euro", "99 centimes" — a price as the radio reads it. */
+    fun sayPrice(euros: Double): String {
+        val cents = Math.round(euros * 100).toInt()
+        if (cents < 100) return "$cents centimes"
+        val whole = cents / 100
+        val rest = cents % 100
+        val unit = if (whole == 1) "euro" else "euros"
+        return if (rest == 0) "$whole $unit" else "$whole $unit ${String.format("%02d", rest)}"
+    }
+
+    /** "800 mètres", "1,4 kilomètre", "7 kilomètres". */
+    fun sayDistance(metres: Int): String = when {
+        metres < 1000 -> "${(Math.round(metres / 100.0) * 100).toInt().coerceAtLeast(100)} mètres"
+        metres < 10_000 -> {
+            val km = Math.round(metres / 100.0) / 10.0
+            val text = if (km == Math.floor(km)) km.toInt().toString() else km.toString().replace('.', ',')
+            text + if (km < 2) " kilomètre" else " kilomètres"
+        }
+        else -> "${Math.round(metres / 1000.0).toInt()} kilomètres"
+    }
 }

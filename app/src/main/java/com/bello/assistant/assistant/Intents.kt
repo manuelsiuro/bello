@@ -1,5 +1,8 @@
 package com.bello.assistant.assistant
 
+import com.bello.assistant.core.FrenchDates
+import com.bello.assistant.tools.FuelData
+
 /**
  * What the user asked for, when it is something Bello can do by itself (FR-TOOL-08): the clock,
  * timers, alarms, the weather, the news, the television and its own memory. Everything else goes
@@ -31,6 +34,15 @@ sealed class Intent {
      * a yes or a no before the date.
      */
     data class SchoolHolidays(val named: String?, val askingNow: Boolean = false) : Intent()
+
+    /** The cheapest fuel around; both fields fall back to the configuration when null. */
+    data class Fuel(val fuel: String?, val city: String?) : Intent()
+    object Joke : Intent()
+    /** What French Wikipedia says about a name. */
+    data class Encyclopedia(val subject: String) : Intent()
+    /** What happened on a day of the year; null and null is today. */
+    data class OnThisDay(val month: Int?, val day: Int?) : Intent()
+
     data class Remember(val fact: String) : Intent()
     data class Forget(val what: String?) : Intent()
     object ListMemories : Intent()
@@ -48,8 +60,13 @@ sealed class Intent {
 
 object Intents {
 
-    /** @param tvChannels the household's channel names and numbers, from the config. */
-    fun match(text: String, tvChannels: Map<String, Int> = emptyMap()): Intent {
+    /**
+     * @param tvChannels the household's channel names and numbers, from the config.
+     * @param raw what was really said or typed, before normalisation. Only the encyclopedia looks
+     *   at it, and only for its capital letters: they are what tells a name from a common noun,
+     *   and `SpeechText.forIntent` has lowercased them by the time the rest of the matching runs.
+     */
+    fun match(text: String, tvChannels: Map<String, Int> = emptyMap(), raw: String = text): Intent {
         val flat = deaccent(text.trim())
         if (flat.isEmpty()) return Intent.None
 
@@ -59,10 +76,15 @@ object Intents {
         alarm(text, flat)?.let { return it }
         tv(text, flat, tvChannels)?.let { return it }
         holidays(flat)?.let { return it }
+        if (JOKE.containsMatchIn(flat)) return Intent.Joke
+        fuel(text, flat)?.let { return it }
         weather(text, flat)?.let { return it }
         if (NEWS.containsMatchIn(flat)) return Intent.News
+        onThisDay(flat)?.let { return it }
         if (TIME.containsMatchIn(flat)) return Intent.Time
         if (DAY.containsMatchIn(flat)) return Intent.Day
+        // Last, and only for a name: everything else is a better question for a provider.
+        encyclopedia(text, flat, raw)?.let { return it }
         return Intent.None
     }
 
@@ -283,6 +305,75 @@ object Intents {
         val named = BREAK_NAMES.firstOrNull { it.first.containsMatchIn(flat) }?.second
         val askingNow = NOW_FORM.containsMatchIn(flat) && !LATER.containsMatchIn(flat)
         return Intent.SchoolHolidays(named, askingNow)
+    }
+
+    // --- Fuel, jokes, the encyclopedia ----------------------------------------------------------
+
+    private val JOKE = Regex("\\b(blagues?|histoire drole|fais moi rire|faire rire|un truc drole|devinette)\\b")
+    private val FUEL_WORD = Regex("\\b(gazole|gasoil|gazol|diesel|essence|carburants?|sp ?9[58]|sans plomb|e ?10|e ?85|gpl|ethanol|superethanol|plein)\\b")
+    private val PRICE_WORD = Regex("\\b(prix|moins cher|cher|combien|coute|coutent|tarif|ou est|ou sont|ou faire|ou je)\\b")
+
+    private fun fuel(text: String, flat: String): Intent? {
+        if (!FUEL_WORD.containsMatchIn(flat)) return null
+        if (!PRICE_WORD.containsMatchIn(flat)) return null
+        val city = CITY.find(NOISE.replace(flat) { " ".repeat(it.value.length) })?.let { m ->
+            val name = original(text, m.groups[1]!!.range).trim()
+            if (name.length < 3 || STOP_CITY.any { name.equals(it, ignoreCase = true) }) null else name
+        }
+        return Intent.Fuel(FuelData.fuelIn(flat), city)
+    }
+
+    private val PASSED = Regex("\\b(s est passe|s est il passe|est il arrive|evenements?|histoire)\\b")
+    private val THAT_DAY = Regex("\\b(aujourd hui|ce jour|du jour|dans l histoire|meme jour|un \\d{1,2})\\b")
+    private val SAID_DATE = Regex("\\b(?:un |le )?(\\d{1,2}|premier)\\s+(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)\\b")
+
+    private fun onThisDay(flat: String): Intent? {
+        val saidDate = SAID_DATE.containsMatchIn(flat)
+        if (!PASSED.containsMatchIn(flat) || !(THAT_DAY.containsMatchIn(flat) || saidDate)) return null
+        val said = SAID_DATE.find(flat) ?: return Intent.OnThisDay(null, null)
+        val day = said.groupValues[1].let { if (it == "premier") 1 else it.toIntOrNull() } ?: return Intent.OnThisDay(null, null)
+        val month = FrenchDates.monthNumber(said.groupValues[2]) ?: return Intent.OnThisDay(null, null)
+        return Intent.OnThisDay(month, day)
+    }
+
+    private val ASKS_ABOUT = listOf(
+        Regex("\\b(?:qui est|qui etait|qui sont|qui etaient|c est qui)\\s+(.+)$"),
+        Regex("\\b(?:c est quoi|qu est ce que|qu est ce qu|qu est ce que c est que)\\s+(.+)$"),
+        Regex("\\b(?:parle moi de|parle moi du|parle moi des|parle moi d|raconte moi|dis moi tout sur)\\s+(.+)$"),
+    )
+    /** Dropped before the name is looked at: they belong to the question, not to the subject. */
+    private val LEADING = Regex("^(?:le|la|les|l|un|une|des|du|de la|de l|de|d|ce|cet|cette|mon|ma|mes|ton|ta|tes|son|sa|ses)\\s+", RegexOption.IGNORE_CASE)
+
+    /**
+     * Only names. "Qui est Marie Curie" is a question the encyclopedia answers better than a
+     * model; "qui est le président de la République" is one it answers worse, because the article
+     * describes the office and never names the person. The rule that tells them apart is the
+     * capital letter, once the determiners are out of the way — and when in doubt Bello says
+     * nothing here and lets the provider answer as usual.
+     */
+    private fun encyclopedia(text: String, flat: String, raw: String): Intent? {
+        for (pattern in ASKS_ABOUT) {
+            val m = pattern.find(flat) ?: continue
+            var subject = original(text, m.groups[1]!!.range).trim().trimEnd('?', '!', '.', ' ')
+            while (true) {
+                val shorter = LEADING.replaceFirst(subject, "")
+                if (shorter == subject) break
+                subject = shorter
+            }
+            subject = subject.trim().trimStart('\'', '\u2019')
+            if (subject.length < 2 || subject.length > 40) return null
+            if (FrenchWords.tokens(subject).size > 5) return null
+            return Intent.Encyclopedia(capitalisedIn(raw, subject) ?: return null)
+        }
+        return null
+    }
+
+    /** The subject as it was really written, when it was written as a name. */
+    private fun capitalisedIn(raw: String, subject: String): String? {
+        val at = raw.indexOf(subject, ignoreCase = true)
+        if (at < 0) return null
+        val written = raw.substring(at, at + subject.length)
+        return written.takeIf { it.first().isUpperCase() }
     }
 
     // --- Weather, news, clock ----------------------------------------------------------------

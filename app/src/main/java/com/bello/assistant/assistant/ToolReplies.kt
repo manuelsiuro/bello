@@ -2,6 +2,10 @@ package com.bello.assistant.assistant
 
 import com.bello.assistant.core.FrenchDates
 import com.bello.assistant.memory.Fact
+import com.bello.assistant.tools.Article
+import com.bello.assistant.tools.FuelData
+import com.bello.assistant.tools.FuelStation
+import com.bello.assistant.tools.PastEvent
 import com.bello.assistant.tools.PublicHoliday
 import com.bello.assistant.tools.SchoolBreak
 import com.bello.assistant.tools.Schedule
@@ -247,6 +251,41 @@ object ToolReplies {
     }
 
     private val FEMININE_HOLIDAYS = listOf("toussaint", "pentecote", "abolition")
+
+    // --- Fuel, the encyclopedia, the day in history ----------------------------------------------
+
+    fun fuel(station: FuelStation): String {
+        val what = FuelData.spoken(station.fuel)
+        val price = FrenchWords.sayPrice(station.price)
+        val far = FrenchWords.sayDistance(station.metres)
+        val where = listOfNotNull(
+            station.town.takeIf { it.isNotBlank() },
+            address(station.address).takeIf { it.isNotBlank() },
+        ).joinToString(", ")
+        val second = if (where.isBlank()) "" else " C'est à $where."
+        return "Le $what le moins cher est à $price, à $far.$second"
+    }
+
+    /** The feed shouts its addresses and abbreviates its roads; a voice should do neither. */
+    fun address(raw: String): String {
+        val text = raw.trim()
+        val spoken = if (text == text.uppercase()) text.lowercase() else text
+        return spoken.replace('.', ' ').replace(Regex("\\s+"), " ").trim()
+    }
+
+    fun fuelNone(fuel: String, city: String): String =
+        "Je ne trouve pas de $fuel autour de $city en ce moment."
+
+    fun fuelUnknownPlace(city: String): String = "Je ne trouve pas $city sur la carte."
+
+    /** Wikipedia's own words: short, and nothing added that the encyclopedia did not say. */
+    fun article(article: Article): String = article.summary
+
+    fun onThisDay(events: List<PastEvent>, day: Long): String {
+        if (events.isEmpty()) return "Je n'ai rien trouvé pour ce jour-là."
+        val told = events.take(2).joinToString(" ; ") { "en ${it.year}, ${it.text}" }
+        return "Un ${FrenchDates.sayDayMonth(day)} : $told."
+    }
 
     // --- A page for the phone (FR-PAGE) ---------------------------------------------------------
 

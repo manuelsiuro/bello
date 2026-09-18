@@ -38,5 +38,7 @@
       "Arte": 7,
       "M6": 6
     }
-  }
+  },
+  "fuel": "gazole",
+  "_fuel": "The fuel the house buys: gazole, sp95, sp98, e10, e85 or gplc. Also holidayZone, schoolZone, schoolAcademy."
 }

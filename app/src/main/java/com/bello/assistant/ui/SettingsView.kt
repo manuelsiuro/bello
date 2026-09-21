@@ -13,6 +13,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import com.bello.assistant.assistant.Feature
 import com.bello.assistant.core.ConfigIo
 import com.bello.assistant.core.FileLog
 import com.bello.assistant.core.NightMode
@@ -39,6 +40,9 @@ class SettingsView(
         fun testMicrophone()
         fun testWakeWord()
         fun providerLines(): List<String>
+        fun providerSwitches(): List<ConfigIo.ProviderSwitch>
+        /** False when config.json could not be written; true means the gateway must be rebuilt. */
+        fun setProviderEnabled(name: String, on: Boolean): Boolean
         fun memoryLine(): String
         fun forgetEverything()
         fun close()
@@ -119,7 +123,17 @@ class SettingsView(
         number("Relance (secondes)", prefs.followUpMs / 1000f, 1f, 0f, 20f) {
             prefs.followUpMs = (it * 1000).toInt()
         }
+
+        // Read on every question: a switch applies at once, without a reload (docs/features.md).
+        section("Fonctions")
+        Feature.values().forEach { feature ->
+            toggle(feature.label.replaceFirstChar { it.uppercase() }, prefs.isEnabled(feature)) {
+                prefs.setEnabled(feature, it)
+                FileLog.i("settings", "FEATURE ${feature.key}=${if (it) "on" else "off"}")
+            }
+        }
         toggle("Détails sur le téléphone (code QR)", prefs.pageOffers) { prefs.pageOffers = it }
+        note("Une fonction désactivée le dit quand on la demande. Sans la discussion, Bello ne répond qu'avec ses outils.")
 
         section("Nuit")
         time("Début", prefs.nightStart) { prefs.nightStart = it; host.onSettingsChanged("night") }
@@ -147,6 +161,13 @@ class SettingsView(
 
         section("Fournisseurs")
         host.providerLines().forEach { note(it) }
+        host.providerSwitches().forEach { provider ->
+            if (!provider.hasKey) note("${provider.name} : sans clé")
+            else toggle(provider.name, provider.enabled) {
+                if (host.setProviderEnabled(provider.name, it)) host.onSettingsChanged("providers")
+                else say("Je n'ai pas pu écrire la configuration.")
+            }
+        }
         note("Les clés et l'ordre se modifient dans le fichier de configuration.")
 
         section("Mémoire")

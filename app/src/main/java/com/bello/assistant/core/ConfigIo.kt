@@ -1,6 +1,10 @@
 package com.bello.assistant.core
 
 import android.content.Context
+import com.bello.assistant.assistant.Feature
+import com.bello.assistant.llm.LlmConfig
+import com.bello.assistant.llm.ProviderConfig
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
@@ -116,6 +120,54 @@ object ConfigIo {
         }
     }
 
+    // --- One switch per provider, on the settings screen ---------------------------------------
+
+    /** A provider entry of config.json as the settings screen shows it. */
+    data class ProviderSwitch(val name: String, val enabled: Boolean, val hasKey: Boolean)
+
+    fun providerSwitches(context: Context): List<ProviderSwitch> =
+        providerSwitches(runCatching { JSONObject(AppConfig.file(context).readText()) }.getOrElse { JSONObject() })
+
+    /** What the file says, with a preset's own default when `enabled` is left out (Gemini Web is off). */
+    fun providerSwitches(root: JSONObject): List<ProviderSwitch> {
+        val providers = root.optJSONArray("providers") ?: return emptyList()
+        return (0 until providers.length()).mapNotNull { i ->
+            val provider = providers.optJSONObject(i) ?: return@mapNotNull null
+            val name = nameOf(provider).ifEmpty { return@mapNotNull null }
+            val preset = LlmConfig.PRESETS[provider.optString("preset", provider.optString("id"))]
+            val keyless = preset?.type == ProviderConfig.Type.GEMINI_WEB ||
+                provider.optString("type").lowercase().let { it == "gemini-web" || it == "geminiweb" || it == "web" }
+            ProviderSwitch(
+                name = name,
+                enabled = provider.optBoolean("enabled", preset?.enabled ?: true),
+                hasKey = keyless || KEY_FIELDS.any { provider.optString(it).isNotBlank() },
+            )
+        }
+    }
+
+    /** Writes the switch into config.json; the caller reloads through `MainActivity.reloadEverything()`. */
+    fun setProviderEnabled(context: Context, name: String, on: Boolean): Boolean {
+        val file = AppConfig.file(context)
+        val root = runCatching { JSONObject(file.readText()) }.getOrElse { return false }
+        if (!setProviderEnabled(root, name, on)) return false
+        return runCatching { file.writeText(root.toString(2)) }
+            .onSuccess { FileLog.i(TAG, "PROVIDER_SWITCHED $name enabled=$on") }
+            .onFailure { FileLog.w(TAG, "PROVIDER_SWITCH_FAILED $name", it) }
+            .isSuccess
+    }
+
+    /** Only `enabled` of the named entry changes; keys and everything else are left as they are. */
+    fun setProviderEnabled(root: JSONObject, name: String, on: Boolean): Boolean {
+        val providers = root.optJSONArray("providers") ?: return false
+        for (i in 0 until providers.length()) {
+            val provider = providers.optJSONObject(i) ?: continue
+            if (nameOf(provider) != name) continue
+            provider.put("enabled", on)
+            return true
+        }
+        return false
+    }
+
     /** Providers are named by their preset, or by an explicit id. */
     private fun nameOf(provider: JSONObject): String =
         provider.optString("preset").ifEmpty { provider.optString("id") }
@@ -127,6 +179,7 @@ object ConfigIo {
         put("ttsRate", prefs.ttsRate.toDouble())
         put("followUpMs", prefs.followUpMs)
         put("pageOffers", prefs.pageOffers)
+        put("disabledFeatures", JSONArray(prefs.disabledFeatures.map { it.key }.sorted()))
         put("pagePort", prefs.pagePort)
         put("nightStart", prefs.nightStart)
         put("nightEnd", prefs.nightEnd)
@@ -140,6 +193,12 @@ object ConfigIo {
         put("settingsPin", prefs.settingsPin)
     }
 
+    /** An array of keys, or null when the document does not mention them; unknown keys are dropped. */
+    fun disabledFeatures(settings: JSONObject): Set<Feature>? {
+        val array = settings.optJSONArray("disabledFeatures") ?: return null
+        return (0 until array.length()).mapNotNull { Feature.byKey(array.optString(it)) }.toSet()
+    }
+
     /** Anything the document does not mention keeps its current value. */
     fun applySettings(prefs: Prefs, settings: JSONObject) {
         if (settings.has("wakeEnabled")) prefs.wakeEnabled = settings.optBoolean("wakeEnabled")
@@ -148,6 +207,7 @@ object ConfigIo {
         if (settings.has("ttsRate")) prefs.ttsRate = settings.optDouble("ttsRate").toFloat()
         if (settings.has("followUpMs")) prefs.followUpMs = settings.optInt("followUpMs")
         if (settings.has("pageOffers")) prefs.pageOffers = settings.optBoolean("pageOffers")
+        disabledFeatures(settings)?.let { prefs.disabledFeatures = it }
         if (settings.has("pagePort")) prefs.pagePort = settings.optInt("pagePort").coerceIn(1024, 65535)
         NightMode.parse(settings.optString("nightStart"))?.let { prefs.nightStart = NightMode.format(it) }
         NightMode.parse(settings.optString("nightEnd"))?.let { prefs.nightEnd = NightMode.format(it) }

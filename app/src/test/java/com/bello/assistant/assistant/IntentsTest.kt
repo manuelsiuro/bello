@@ -113,6 +113,16 @@ class IntentsTest {
         assertEquals(Intent.TvChannelStep(up = true), tv("zappe"))
     }
 
+    @Test fun `a channel number said in words, after chaîne or sur, is still the television`() {
+        assertEquals(Intent.TvChannel(2, null), tv("mets la chaîne deux"))
+        assertEquals(Intent.TvChannel(2, null), tv("passe sur la deux"))
+        assertEquals(Intent.TvChannel(23, null), tv("mets la chaîne vingt-trois"))
+        assertEquals(Intent.TvChannel(11, null), tv("va sur la chaîne onze"))
+        assertEquals(Intent.TvChannel(2, "France 2"), tv("mets France deux"))
+        assertEquals(Intent.TvChannel(25, "Chérie 25"), tv("mets chérie vingt-cinq"))
+        assertTrue(tv("Mets un minuteur de 3 minutes pour la sauce") is Intent.TimerSet)
+    }
+
     @Test fun `sound`() {
         assertEquals(Intent.TvVolume(up = true, steps = 3), tv("Monte le son"))
         assertEquals(Intent.TvVolume(up = true, steps = 1), tv("monte un peu le son de la télé"))

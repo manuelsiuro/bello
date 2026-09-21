@@ -535,6 +535,31 @@ Wikipedia, and a joke.
 - **A fuel price older than a week is not a price.** The dataset keeps stations that stopped
   reporting, and sending somebody across town for last month's price is worse than saying nothing.
 
+### Phase 12 — Commands end the turn, and a switch per feature
+
+A review of every action (docs/features.md) found two problems:
+- Every answer kept the microphone open for 6 s, a TV command included.
+- A channel number said in words (« mets la chaîne deux ») went to the chat.
+
+Only the wake word, the camera and the page offers had switches.
+
+| # | Task | Done |
+|---|---|---|
+| P12-1 | `assistant/Features`: which switch an intent depends on, and whether it is a command; the Router ends the turn after a command | ☑ |
+| P12-2 | A switched-off feature says so (`ToolReplies.featureOff`, `chatOff`) and never reaches a provider; without the chat, the news are read as titles; without the memory, no facts are sent | ☑ |
+| P12-3 | `Intents`: every tail after « la / chaîne / sur » is tried as a number, and channel names match with the number in words (« France deux ») | ☑ |
+| P12-4 | Settings screen: « Fonctions » (ten switches plus the QR offers), one switch per provider written into `config.json` and applied through `reloadEverything()` | ☑ |
+| P12-5 | `disabledFeatures` in the export and import; `scripts/features.sh` | ☑ |
+
+**Result (2026-09-21):**
+- Built, and 230 JVM unit tests pass (221 before), including the new `FeaturesTest`.
+- Verified on the tablet:
+  - « retiens que… » goes SPEAKING → IDLE.
+  - « quelle heure est-il » goes SPEAKING → FOLLOW_UP.
+  - With the weather off, « quel temps fait-il » is answered by `FEATURE_OFF weather`, with no network call.
+  - With the chat off, a free question is answered by `FEATURE_OFF chat`, with no provider call.
+  - Switching groq off and on from the screen rebuilds the gateway (`CONFIG_APPLIED`).
+
 ## 5. Inputs needed from the user
 
 | When | Input |
@@ -570,7 +595,7 @@ twelfth is the seven-day unattended run, started 2026-09-18 11:44 (`scripts/soak
 | Cost, everything running | 12–16 % CPU, 33–34 °C, ~167 MB (budgets: 35 %, 42 °C, 350 MB) |
 | Cost, face alone | 6 % CPU, 67 MB |
 | Recovering | crash → back in ~1 s with a backing-off restart; reboot → face 4 s after `BOOT_COMPLETED`, alarms re-armed; network gone → local tools keep working, answers in 6 ms, resumes by itself |
-| Tests | 221 JVM unit tests (205 before Phase 11) |
+| Tests | 230 JVM unit tests (221 before Phase 12) |
 
 **Still open, and recorded as such:**
 

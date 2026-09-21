@@ -44,6 +44,12 @@ class ToolRepliesTest {
             .forEach { assertTrue(it, ToolReplies.PAGE_SYSTEM.contains(it)) }
     }
 
+    @Test fun `a switched-off feature says so, whatever the gender of its name`() {
+        assertEquals("La météo : c'est désactivé dans les réglages.", ToolReplies.featureOff(Feature.WEATHER.label))
+        assertEquals("Les blagues : c'est désactivé dans les réglages.", ToolReplies.featureOff(Feature.JOKES.label))
+        assertTrue(ToolReplies.chatOff().contains("discussion est désactivée"))
+    }
+
     @Test fun `the clock is spoken, not printed`() {
         assertEquals("Il est 9 heures 5.", ToolReplies.time(at(9, 5)))
         assertEquals("Il est 14 heures.", ToolReplies.time(at(14, 0)))

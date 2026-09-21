@@ -1,6 +1,8 @@
 package com.bello.assistant.core
 
 import android.content.Context
+import com.bello.assistant.assistant.Feature
+import com.bello.assistant.assistant.Features
 
 /**
  * Every setting that belongs to this tablet rather than to the answer providers: the ones the
@@ -41,6 +43,19 @@ class Prefs(context: Context) {
     var followUpMs: Int
         get() = sp.getInt("followUpMs", 6000)
         set(v) = sp.edit().putInt("followUpMs", v).apply()
+
+    // --- Features the owner switched off (docs/features.md) ------------------------------------
+
+    /** Stored as "weather,tv": empty, the default, means everything is on. */
+    var disabledFeatures: Set<Feature>
+        get() = Features.parse(sp.getString("disabledFeatures", "") ?: "")
+        set(v) = sp.edit().putString("disabledFeatures", Features.format(v)).apply()
+
+    fun isEnabled(feature: Feature) = feature !in disabledFeatures
+
+    fun setEnabled(feature: Feature, on: Boolean) {
+        disabledFeatures = if (on) disabledFeatures - feature else disabledFeatures + feature
+    }
 
     // --- A page for the phone (FR-PAGE-*) ----------------------------------------------------
 

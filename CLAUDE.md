@@ -5,6 +5,7 @@
 - Requirements: [docs/requirements.md](docs/requirements.md)
 - Feasibility spike results: [docs/feasibility-results.md](docs/feasibility-results.md) (test bench in `spikes/`, a separate Gradle project)
 - Implementation plan and phase status: [docs/implementation-plan.md](docs/implementation-plan.md)
+- Every action Bello takes, the service behind it, its switch and what happens after it answers: [docs/features.md](docs/features.md)
 - Studies: free services Bello could use, checked with real calls: [docs/free-services.md](docs/free-services.md); the SFR TV decoder and how it is driven: [docs/sfr-tv-box.md](docs/sfr-tv-box.md)
 
 ## Primary device
@@ -49,6 +50,7 @@ scripts/settings.sh export|import|open|status   # the whole configuration as one
 scripts/soak.sh start|report|stop           # the unattended run: crashes, network, CPU, heat, battery
 scripts/page.sh demo|status|off|open|ask    # the details on the phone: a page served by the tablet, a QR code on the face
 scripts/tv.sh status|on|off|key|channel|ask  # the SFR TV decoder, straight from the Mac or through Bello
+scripts/features.sh status|on <key>|off <key>  # switch a feature (chat tv timers memory weather news fuel wikipedia jokes holidays)
 ```
 
 API keys: copy `config/bello.example.json` to `config/bello.local.json` (git-ignored), add your free
@@ -88,6 +90,11 @@ Home screen: after installing, press Home on the tablet and choose Bello → "Al
 - Gemini Web (`llm/GeminiWebProvider`, off by default) is key-free but expensive: the loaded page
   costs ~48 % CPU and ~190 MB, so it is loaded around a question and released 90 s later. Its
   selectors live in `assets/gemini/gemini.js`, replaceable by pushing a file to the device.
+- Commands end the turn, questions keep the follow-up: `assistant/Features.isCommand` (TV, setting
+  or cancelling a timer or alarm, remember, forget) makes the Router send `followUpMs = 0`, so no
+  follow-up, offer or QR comes after a command. Each tool has an owner switch (`Feature`,
+  `Prefs.disabledFeatures`, read on every question); a switched-off feature says so and never
+  falls back to a provider. A new intent must be classified in `Features` (docs/features.md).
 - Tools first, provider second: `assistant/Intents` matches French requests for the clock, timers,
   alarms, weather, news and memory locally; `assistant/Router` sends everything else to the gateway
   with the session history and the remembered facts. Spoken replies live in `assistant/ToolReplies`

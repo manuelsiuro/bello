@@ -58,6 +58,27 @@ object FrenchWords {
         return if (sum <= 99) sum else null
     }
 
+    /**
+     * The same words with every number in figures, longest run first: "france deux" → "france 2",
+     * "cherie vingt cinq" → "cherie 25". Tokens are rejoined with single spaces.
+     */
+    fun digits(text: String): String {
+        val words = tokens(text)
+        val out = ArrayList<String>(words.size)
+        var i = 0
+        while (i < words.size) {
+            val run = (minOf(4, words.size - i) downTo 1).firstOrNull { number(words.subList(i, i + it)) != null }
+            if (run == null) {
+                out += words[i]
+                i++
+            } else {
+                out += number(words.subList(i, i + run)).toString()
+                i += run
+            }
+        }
+        return out.joinToString(" ")
+    }
+
     /** The number written just before position [index], longest match first ("vingt et un"). */
     private fun numberBefore(words: List<String>, index: Int): Int? {
         for (size in 4 downTo 1) {

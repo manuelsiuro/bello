@@ -191,7 +191,9 @@ object Intents {
     private val ZAP = Regex("\\b(mets|met|mettre|passe|passer|va|vas|aller|zappe|zapper|tourne|change|choisis|reviens|retourne)\\b")
     private val CHANNEL_WORD = Regex("\\b(chaine|chaines|programme|canal)\\b")
     private val CHANNEL_NUMBER = Regex("\\b(?:la|le|chaine|canal|sur|numero)\\s+(\\d{1,3})\\b")
-    private val CHANNEL_TAIL = Regex("\\b(?:la|chaine|canal|sur)\\s+([a-z ]+?)\\s*$")
+    /** Where a channel said in words can start: "mets la chaîne deux", "passe sur la deux". */
+    private val CHANNEL_LEAD = Regex("\\b(?:la|le|chaine|canal|sur|numero)\\s+")
+    private val CHANNEL_FILLER = Regex("^(?:(?:la|le|chaine|canal|sur|numero)\\s+)+")
     private val CHANNEL_NEXT = Regex("\\b(suivante?|d apres|prochaine)\\b")
     private val CHANNEL_PREV = Regex("\\b(precedente?|d avant)\\b")
     private val ZAP_ALONE = Regex("^\\s*(zappe|zap)\\s*$")
@@ -243,9 +245,7 @@ object Intents {
         if (channelWord || ZAP.containsMatchIn(flat)) {
             CHANNEL_NUMBER.find(flat)?.let { return Intent.TvChannel(it.groupValues[1].toInt(), null) }
             channelByName(flat, channels)?.let { return it }
-            CHANNEL_TAIL.find(flat)?.let { m ->
-                FrenchWords.number(m.groupValues[1])?.let { return Intent.TvChannel(it, null) }
-            }
+            spokenChannel(flat)?.let { return Intent.TvChannel(it, null) }
         }
 
         if (tvWord) {
@@ -261,13 +261,29 @@ object Intents {
         return null
     }
 
-    /** The longest configured name found in the sentence: "france 2" before "france". */
+    /**
+     * The whole rest of the sentence after a lead word, read as a number. Every lead is tried, not
+     * only the first: in "mets la chaîne deux" the first tail is "chaine deux", which is not one.
+     */
+    private fun spokenChannel(flat: String): Int? {
+        CHANNEL_LEAD.findAll(flat).forEach { m ->
+            val tail = flat.substring(m.range.last + 1).replace(CHANNEL_FILLER, "").trim()
+            FrenchWords.number(tail)?.let { return it }
+        }
+        return null
+    }
+
+    /**
+     * The longest configured name found in the sentence: "france 2" before "france". A name said
+     * with its number in words ("france deux") is found in the same sentence with figures.
+     */
     private fun channelByName(flat: String, channels: Map<String, Int>): Intent? {
         if (channels.isEmpty()) return null
         val byFlat = channels.entries.associate { deaccent(it.key.lowercase()).trim() to it }
         val pattern = byFlat.keys.filter { it.isNotEmpty() }.sortedByDescending { it.length }
             .joinToString("|") { Regex.escape(it) }
-        val m = Regex("(?<![a-z0-9])(?:$pattern)(?![a-z0-9])").find(flat) ?: return null
+        val name = Regex("(?<![a-z0-9])(?:$pattern)(?![a-z0-9])")
+        val m = name.find(flat) ?: name.find(FrenchWords.digits(flat)) ?: return null
         val entry = byFlat.getValue(m.value)
         return Intent.TvChannel(entry.value, entry.key)
     }

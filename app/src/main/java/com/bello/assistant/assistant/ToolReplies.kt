@@ -28,6 +28,17 @@ object ToolReplies {
         "Je n'ai plus de réseau. Je peux quand même te donner l'heure, " +
             "mettre un minuteur ou te réveiller."
 
+    /**
+     * A feature the owner switched off. [label] is [Feature.label], article included; the sentence
+     * is built so that neither its gender nor its number shows ("de les" would).
+     */
+    fun featureOff(label: String): String =
+        "${label.replaceFirstChar { it.uppercase() }} : c'est désactivé dans les réglages."
+
+    /** The chat is switched off and no tool knew the answer. */
+    fun chatOff(): String =
+        "Je ne peux répondre qu'avec mes outils : la discussion est désactivée dans les réglages."
+
     /** Somebody has come back into the room after a while (FR-PRES-02). */
     fun greeting(hour: Int): String = when (hour) {
         in 0..4 -> "Oh ! Encore debout ?"

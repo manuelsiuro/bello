@@ -19,6 +19,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import com.bello.assistant.assistant.Assistant
 import com.bello.assistant.assistant.ConversationPolicy
+import com.bello.assistant.assistant.Feature
 import com.bello.assistant.assistant.Router
 import com.bello.assistant.assistant.ToolReplies
 import com.bello.assistant.assistant.Turn
@@ -85,8 +86,7 @@ class MainActivity : Activity(), FaceView.Listener {
             face.showOffline(!online)
             FileLog.i(TAG, "network=${if (online) "back" else "lost"}")
         }
-        router = Router(this, gateway, AppConfig.load(this), routerListener, (application as BelloApp).pages(),
-            isOnline = network::isOnline, offersEnabled = { prefs.pageOffers })
+        router = newRouter(gateway)
         assistant = Assistant(this, face, router, isNight = { night })
         assistant.onTurnChanged = { onTurnChanged() }
         presence = Presence(this, prefs, presenceListener)
@@ -319,9 +319,14 @@ class MainActivity : Activity(), FaceView.Listener {
                 "night" -> applyNight()
                 "presence" -> restartPresence()
                 "overlay" -> overlay.show(prefs.overlayEnabled)
-                "import" -> reloadEverything()
+                "import", "providers" -> reloadEverything()
             }
         }
+
+        override fun providerSwitches(): List<ConfigIo.ProviderSwitch> = ConfigIo.providerSwitches(this@MainActivity)
+
+        override fun setProviderEnabled(name: String, on: Boolean): Boolean =
+            ConfigIo.setProviderEnabled(this@MainActivity, name, on)
 
         override fun testProvider() = Thread({
             val answer = gateway.answer("Dis bonjour en une phrase.")
@@ -360,12 +365,17 @@ class MainActivity : Activity(), FaceView.Listener {
         ticker.postDelayed({ presence.start() }, PRESENCE_RESTART_MS)
     }
 
+    /** The one way a Router is made, so both constructions get the same switches. */
+    private fun newRouter(gateway: LlmGateway) =
+        Router(this, gateway, AppConfig.load(this), routerListener, (application as BelloApp).pages(),
+            isOnline = network::isOnline, offersEnabled = { prefs.pageOffers },
+            featureEnabled = { prefs.isEnabled(it) })
+
     private fun reloadEverything() {
         val fresh = (application as BelloApp).reloadGateway()
         gateway = fresh
         fresh.attachWebHost(root)
-        router = Router(this, fresh, AppConfig.load(this), routerListener, (application as BelloApp).pages(),
-            isOnline = network::isOnline, offersEnabled = { prefs.pageOffers })
+        router = newRouter(fresh)
         assistant.setResponder(router)
         assistant.setVoiceParams(prefs.ttsPitch, prefs.ttsRate)
         assistant.wakeCommand(if (prefs.wakeEnabled) prefs.wakeSensitivity else "off")
@@ -412,6 +422,18 @@ class MainActivity : Activity(), FaceView.Listener {
                 "check" -> presence.diagnose()
                 else -> FileLog.i(TAG, "PRESENCE ${presence.status()}")
             }
+        }
+        intent.getStringExtra(EXTRA_FEATURE)?.let { command ->
+            // "off:weather", "on:tv", "status"
+            val feature = Feature.byKey(command.substringAfter(':', ""))
+            when {
+                command == "status" -> Unit
+                feature == null -> FileLog.w(TAG, "unknown feature command '$command'")
+                command.startsWith("on:") -> prefs.setEnabled(feature, true)
+                command.startsWith("off:") -> prefs.setEnabled(feature, false)
+                else -> FileLog.w(TAG, "unknown feature command '$command'")
+            }
+            Feature.values().forEach { FileLog.i(TAG, "FEATURE ${it.key}=${if (prefs.isEnabled(it)) "on" else "off"}") }
         }
         intent.getStringExtra(EXTRA_NIGHT)?.let { command ->
             nightOverride = when (command) { "on" -> true; "off" -> false; else -> null }
@@ -570,6 +592,7 @@ class MainActivity : Activity(), FaceView.Listener {
         const val EXTRA_NIGHT = "night"
         const val EXTRA_PRESENCE = "presence"
         const val EXTRA_PAGE = "page"
+        const val EXTRA_FEATURE = "feature"
         const val NIGHT_CHECK_MS = 60_000L
         /** How long the QR code stays on the face: time to find the phone and scan (FR-PAGE-05). */
         const val PAGE_SHOWN_MS = 180_000L

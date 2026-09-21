@@ -42,6 +42,8 @@ class Router(
     private val isOnline: () -> Boolean = { true },
     /** The owner can turn the offers off in the settings (FR-PAGE-01). */
     private val offersEnabled: () -> Boolean = { true },
+    /** The owner's switches (docs/features.md), read on every question so a change needs no reload. */
+    private val featureEnabled: (Feature) -> Boolean = { true },
 ) : Responder {
 
     /** What the conversation has to do on the side: stop ringing, refresh the countdown, show a page. */
@@ -89,18 +91,26 @@ class Router(
         if (intent is Intent.Encyclopedia) {
             FileLog.i(TAG, "intent=Encyclopedia")
             // Nothing in the encyclopedia is not an answer: the question goes on to a provider.
-            encyclopedia(intent)?.let { return it }
+            if (featureEnabled(Feature.WIKIPEDIA)) encyclopedia(intent)?.let { return it }
             FileLog.i(TAG, "nothing on Wikipedia, asking a provider")
         } else if (intent != Intent.None) {
             FileLog.i(TAG, "intent=${intent.javaClass.simpleName}")
-            return handle(intent, now)
+            Features.featureOf(intent)?.takeIf { !featureEnabled(it) }?.let { return switchedOff(it) }
+            val answer = handle(intent, now)
+            // A command is done once it is said: no follow-up, so the television is not heard as a question.
+            return if (Features.isCommand(intent) && !answer.isError) answer.copy(followUpMs = 0) else answer
+        }
+        if (!featureEnabled(Feature.CHAT)) {
+            FileLog.i(TAG, "FEATURE_OFF chat")
+            return say(ToolReplies.chatOff()).copy(followUpMs = 0)
         }
         if (!isOnline()) {
             FileLog.i(TAG, "no network; answering locally")
             return offline(ToolReplies.offline())
         }
         if (session.expireIfIdle(now)) FileLog.i(TAG, "session expired, starting fresh")
-        val answer = gateway.ask(question, session.history(now), facts.promptBlock())
+        val remembered = if (featureEnabled(Feature.MEMORY)) facts.promptBlock() else ""
+        val answer = gateway.ask(question, session.history(now), remembered)
         if (answer.isError) return answer
         // The offer is spoken, not remembered: the model must not learn to ask it itself.
         session.add(question, answer.text, now)
@@ -113,6 +123,12 @@ class Router(
         offer = PageOffer.Offer(question, answer.text, now)
         FileLog.i(TAG, "PAGE_OFFERED by=$by")
         return answer.copy(text = answer.text + " " + ToolReplies.pageOffer(), followUpMs = OFFER_FOLLOW_UP_MS)
+    }
+
+    /** Said instead of doing what was asked; the turn ends there. */
+    private fun switchedOff(feature: Feature): Responder.Answer {
+        FileLog.i(TAG, "FEATURE_OFF ${feature.key}")
+        return say(ToolReplies.featureOff(feature.label)).copy(followUpMs = 0)
     }
 
     /** A ring or a cancel: "oui" would be answering something else now. */
@@ -358,6 +374,8 @@ class Router(
         if (!isOnline()) return offline(ToolReplies.offline())
         val titles = news.headlines(config.newsFeeds)
         if (titles.isEmpty()) return offline("Je n'arrive pas à récupérer les informations.")
+        // Summarising is a provider's job; with the chat switched off, the titles are read as they are.
+        if (!featureEnabled(Feature.CHAT)) return say(ToolReplies.headlinesFallback(titles))
         val summary = gateway.ask(ToolReplies.summarisePrompt(titles), emptyList(), "")
         return if (summary.isError) say(ToolReplies.headlinesFallback(titles)) else summary
     }

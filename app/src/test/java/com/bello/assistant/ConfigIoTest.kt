@@ -1,5 +1,6 @@
 package com.bello.assistant
 
+import com.bello.assistant.assistant.Feature
 import com.bello.assistant.core.ConfigIo
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -58,5 +59,34 @@ class ConfigIoTest {
             .apply { isAccessible = true }.invoke(ConfigIo, edited, onDevice)
         assertEquals("old", keyOf(edited, "groq"))
         assertTrue(keyOf(edited, "unknown").isEmpty())
+    }
+
+    @Test fun `a provider switch flips only the named entry and never touches a key`() {
+        val root = JSONObject("""{"providers":[
+            {"preset":"gemini","key":"g-secret"},
+            {"preset":"groq","apiKey":"q-secret","enabled":true},
+            {"preset":"geminiweb"}]}""")
+        assertTrue(ConfigIo.setProviderEnabled(root, "groq", false))
+        assertEquals(false, ConfigIo.setProviderEnabled(root, "mistral", false))
+        val switches = ConfigIo.providerSwitches(root).associateBy { it.name }
+        assertEquals(true, switches.getValue("gemini").enabled)
+        assertEquals(false, switches.getValue("groq").enabled)
+        // Gemini Web needs no key and is off unless the file says otherwise.
+        assertEquals(false, switches.getValue("geminiweb").enabled)
+        assertTrue(switches.getValue("geminiweb").hasKey)
+        assertEquals("q-secret", keyOf(root, "groq"))
+        assertEquals("g-secret", keyOf(root, "gemini"))
+    }
+
+    @Test fun `a provider without a key cannot be switched on from the screen`() {
+        val root = JSONObject("""{"providers":[{"preset":"mistral","key":""}]}""")
+        assertEquals(false, ConfigIo.providerSwitches(root).single().hasKey)
+    }
+
+    @Test fun `switched-off features travel as keys, and unknown ones are dropped`() {
+        val settings = JSONObject("""{"disabledFeatures":["weather","tv","teleportation"]}""")
+        assertEquals(setOf(Feature.WEATHER, Feature.TV), ConfigIo.disabledFeatures(settings))
+        assertEquals(null, ConfigIo.disabledFeatures(JSONObject("{}")))
+        assertEquals(emptySet<Feature>(), ConfigIo.disabledFeatures(JSONObject("""{"disabledFeatures":[]}""")))
     }
 }

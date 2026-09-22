@@ -472,6 +472,14 @@ the sentences Bello says every day — greetings, the timer ring, the offer of t
 them, if the voice is judged better than the pitched Google one. A `MediaPlayer` path for PCM
 wrapped in a WAV header is small; it would also serve any radio or podcast feature.
 
+### 6.3 Pictures for the details page (2026-09-22)
+
+Studied later, for FR-PAGE-07, and written up in [page-images.md](page-images.md):
+- **Cloudflare Workers AI** (FLUX schnell; free account, no card) is first.
+- **Pollinations** with a free key is second.
+- Gemini's AI Studio key gives **0** images a day.
+- Pollinations without a key answers, but with a weak model and its logo.
+
 ## 7. What could not be verified
 
 - **Anything behind an account** was read from the documentation, not called: api.sncf.com (and

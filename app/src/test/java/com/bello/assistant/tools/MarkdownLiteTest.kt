@@ -58,6 +58,18 @@ class MarkdownLiteTest {
         assertTrue(html.contains("Servi par Bello · 18 septembre"))
     }
 
+    @Test fun `the picture goes under the title, or first when there is none`() {
+        val hero = PageHtml.hero("/r/k3x9q2ab/img", "Tarte \"fine\"", 4, 3)
+        assertEquals("<img class=\"hero\" src=\"/r/k3x9q2ab/img\" alt=\"Tarte &quot;fine&quot;\" width=\"4\" height=\"3\">\n", hero)
+        val body = MarkdownLite.toHtml("# Tarte\n## Ingrédients\n- pommes")
+        val html = PageHtml.render(PageHtml.MINIMAL, "Tarte", body, "m", hero)
+        assertTrue(html.contains("<h1>Tarte</h1>\n<img class=\"hero\""))
+        assertTrue(html.indexOf("<img") < html.indexOf("<h2>"))
+        val untitled = PageHtml.render(PageHtml.MINIMAL, "Bello", "<p>a</p>", "m", hero)
+        assertTrue(untitled.contains("<main><img class=\"hero\""))
+        assertTrue(!PageHtml.render(PageHtml.MINIMAL, "Tarte", body, "m").contains("<img"))
+    }
+
     @Test fun `the shipped template has the three placeholders and nothing external`() {
         val asset = File("src/main/assets/page/page.html").readText()
         listOf("{{title}}", "{{body}}", "{{meta}}").forEach { assertTrue(it, asset.contains(it)) }

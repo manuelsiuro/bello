@@ -26,6 +26,18 @@ class PageStoreTest {
         assertEquals("<p>4</p>", store.get(ids[3], now = 5))
     }
 
+    @Test fun `a picture lives and goes with its page, which knows its own id`() {
+        val store = PageStore(ttlMs = 1_000, maxPages = 1, random = Random(1))
+        val id = store.publish(PageStore.Image(byteArrayOf(1, 2, 3), "image/jpeg"), now = 0) { "<img src=\"/r/$it/img\">" }
+        assertEquals("<img src=\"/r/$id/img\">", store.get(id, now = 1))
+        assertEquals(3, store.image(id, now = 1)!!.bytes.size)
+        assertEquals(3, store.imageBytes())
+        val next = store.publish("<p>b</p>", now = 2)
+        assertNull(store.image(id, now = 3))
+        assertNull(store.image(next, now = 3))
+        assertEquals(0, store.imageBytes())
+    }
+
     @Test fun `an unknown id and a sweep`() {
         val store = PageStore(ttlMs = 100, random = Random(1))
         assertNull(store.get("zzzzzzzz", now = 0))

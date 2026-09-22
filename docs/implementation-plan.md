@@ -560,6 +560,40 @@ Only the wake word, the camera and the page offers had switches.
   - With the chat off, a free question is answered by `FEATURE_OFF chat`, with no provider call.
   - Switching groq off and on from the screen rebuilds the gateway (`CONFIG_APPLIED`).
 
+### Phase 13 — A picture on the details page
+
+A recipe page read on a phone was text only. Goal: one picture that fits the page, drawn by a
+free service, at no running cost (FR-PAGE-07). The study, the services tested and the prompt
+rules are in [page-images.md](page-images.md).
+
+| # | Task | Done |
+|---|---|---|
+| P13-1 | Study: free image services called for real (Gemini's key has 0 image quota, Together's free FLUX is gone, Pollinations without a key is downgraded); prompt practice for FLUX / Gemini / SDXL; a style map per kind of page | ☑ |
+| P13-2 | `images/`: `ImageConfig` (the `images` block), `CloudflareImageProvider`, `PollinationsImageProvider`, `ImageGateway` (order, cooldowns through `GatewayState`, a 25 s budget), `PageImages` (shrinks to 900 px) | ☑ |
+| P13-3 | The page's author ends with `[image: …]` in English (`ToolReplies.PAGE_IMAGE_RULE`); `ImagePrompt` takes it out and cleans it, and falls back to the title | ☑ |
+| P13-4 | `PageStore` keeps the picture with its page; `PageProtocol` serves `/r/<id>/img` under `img-src 'self'`; `PageHtml` puts it under the title | ☑ |
+| P13-5 | Switch `pageImages` (settings screen, export, `page.sh images on\|off`); image keys masked on export and kept on import; `scripts/image.sh` to try a prompt from the Mac | ☑ |
+| P13-6 | Cloudflare and Pollinations keys in `config/bello.local.json`; measure both on the tablet | ◐ Cloudflare done; Pollinations runs without a key |
+
+**Result (2026-09-22, before the keys):**
+- Built, and 256 JVM unit tests pass (230 before).
+- Verified on the tablet with Pollinations without a key:
+  - `page.sh demo` → a crêpes page with its picture (34.8 KB, 15.4 s).
+  - The picture is served as `image/jpeg` under the new CSP, and read on a phone-sized browser under the title.
+  - A spoken « recette de la ratatouille », then « oui » → Gemini answered 503, Groq wrote the page with its own `[image: Editorial food photograph …]` line (`authored=true`), the picture came in 8.2 s, and the page was published with it; the line does not show on the page.
+  - Once, the key-less service answered 500 (upstream 429): the page was published at once without a picture.
+
+**Result with the Cloudflare key (2026-09-22):**
+- The five styles drawn from the Mac with `scripts/image.sh` took 1.5–2.3 s each. The food photo, the isometric workbench, the lavender field, the watercolour bedroom and the children's table all came out right, with no text in any of them.
+- On the tablet:
+  - `page.sh demo` drew the picture in 1.9 s. It was 729 KB, shrunk to 127 KB.
+  - A spoken « comment monter une étagère au mur », then « oui »: Groq wrote the page in 0.8 s, and Cloudflare drew the picture in 1.9 s. The page was published 2.2 s after the text.
+- The first call on the tablet failed: Cloudflare refuses a `seed` field (400, 5006). The page came out without a picture, on time, and the field is gone now.
+
+**Findings:**
+- Without a key, Pollinations swaps every model for `sana` and stamps its logo: the ratatouille came out as a pot and two lemons. The keys are what make the pictures worth having.
+- Groq's `gpt-oss-20b` followed the style map for a recipe, but drew a wall shelf as a watercolour, which is the "advice" style. The rule now names the how-to verbs (monter, installer, réparer…).
+
 ## 5. Inputs needed from the user
 
 | When | Input |
@@ -567,6 +601,7 @@ Only the wake word, the camera and the page offers had switches.
 | ~~Before Phase 3~~ | ✅ Provided 2026-09-18: Gemini (AI Studio) and Groq keys, in `config/bello.local.json` |
 | Phase 1 (optional) | Face design direction, or keep the SP-06 placeholder |
 | Phase 5 (optional now; the phase was accepted without it) | Three minutes of your own voice — `scripts/wake-live.sh calls 10` prompts you to say "Bello" ten times and prints the detection rate — and, when convenient, `scripts/wake-live.sh room 30` with the television on for the false-wake half. Nothing is played from the Mac; the tablet listens to the room it lives in, and `scripts/wake-test.sh score` then picks thresholds from what it heard |
+| Phase 13 (open) | ~~A Cloudflare token~~ ✅ provided 2026-09-22. Still optional: a free Pollinations key from enter.pollinations.ai, so that the fallback draws with FLUX instead of the weak key-less model |
 | Phase 7 (open) | Whether to put the tablet on a mains timer or smart plug, and on what schedule — a ten-year-old battery held at 100 % all day is the one thing that will end this project early. The options are written up in [device-galaxy-tab4.md](device-galaxy-tab4.md#keeping-the-battery-alive-nfr-hw-01), and every performance sample now records the battery level so a week of running shows whether a schedule works |
 
 ## 6. Key risks carried from the spikes

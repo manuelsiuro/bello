@@ -44,6 +44,14 @@ class ToolRepliesTest {
             .forEach { assertTrue(it, ToolReplies.PAGE_SYSTEM.contains(it)) }
     }
 
+    @Test fun `the page's author also writes the picture's prompt, in English, by kind`() {
+        assertTrue(ToolReplies.PAGE_SYSTEM.endsWith(ToolReplies.PAGE_IMAGE_RULE))
+        listOf("[image: …]", "EN ANGLAIS", "Editorial food photograph", "Isometric 3D vector illustration",
+            "Wide-angle editorial travel photograph", "Soft watercolor illustration", "Colorful 3D animated-film style",
+            "Aucun texte", "ni visages ni mains")
+            .forEach { assertTrue(it, ToolReplies.PAGE_IMAGE_RULE.contains(it)) }
+    }
+
     @Test fun `a switched-off feature says so, whatever the gender of its name`() {
         assertEquals("La météo : c'est désactivé dans les réglages.", ToolReplies.featureOff(Feature.WEATHER.label))
         assertEquals("Les blagues : c'est désactivé dans les réglages.", ToolReplies.featureOff(Feature.JOKES.label))

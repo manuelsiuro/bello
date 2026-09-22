@@ -38,11 +38,10 @@ object ConfigIo {
     /**
      * A key can be written as "key" or as "apiKey" — the config parser accepts both, so both have
      * to be masked. Getting this wrong writes the real keys into a file somebody then e-mails.
+     * Keys live in two lists: the chat providers and the picture services (`images.providers`).
      */
     fun mask(root: JSONObject) {
-        val providers = root.optJSONArray("providers") ?: return
-        for (i in 0 until providers.length()) {
-            val provider = providers.optJSONObject(i) ?: continue
+        keyed(root).forEach { provider ->
             KEY_FIELDS.forEach { field ->
                 if (provider.optString(field).isNotEmpty()) provider.put(field, MASK)
             }
@@ -51,13 +50,17 @@ object ConfigIo {
 
     /** True when nothing in this document looks like a secret. */
     fun isMasked(json: String): Boolean {
-        val providers = runCatching { JSONObject(json).optJSONArray("providers") }.getOrNull() ?: return true
-        for (i in 0 until providers.length()) {
-            val provider = providers.optJSONObject(i) ?: continue
-            if (KEY_FIELDS.any { provider.optString(it).let { key -> key.isNotEmpty() && key != MASK } }) return false
+        val root = runCatching { JSONObject(json) }.getOrNull() ?: return true
+        return keyed(root).none { provider ->
+            KEY_FIELDS.any { provider.optString(it).let { key -> key.isNotEmpty() && key != MASK } }
         }
-        return true
     }
+
+    /** Every entry of the document that may carry a key. */
+    private fun keyed(root: JSONObject): List<JSONObject> = listOfNotNull(
+        root.optJSONArray("providers"),
+        root.optJSONObject("images")?.optJSONArray("providers"),
+    ).flatMap { array -> (0 until array.length()).mapNotNull { array.optJSONObject(it) } }
 
     fun writeExport(context: Context, includeKeys: Boolean): File {
         val file = exportFile(context)
@@ -102,10 +105,17 @@ object ConfigIo {
 
     data class Result(val ok: Boolean, val message: String)
 
-    /** A key the export masked must not overwrite the real one. */
+    /** A key the export masked must not overwrite the real one — in either list. */
     private fun keepMaskedKeys(incoming: JSONObject, current: JSONObject) {
-        val fresh = incoming.optJSONArray("providers") ?: return
-        val existing = current.optJSONArray("providers") ?: return
+        keepMaskedKeys(incoming.optJSONArray("providers"), current.optJSONArray("providers"))
+        keepMaskedKeys(
+            incoming.optJSONObject("images")?.optJSONArray("providers"),
+            current.optJSONObject("images")?.optJSONArray("providers"),
+        )
+    }
+
+    private fun keepMaskedKeys(fresh: JSONArray?, existing: JSONArray?) {
+        if (fresh == null || existing == null) return
         for (i in 0 until fresh.length()) {
             val provider = fresh.optJSONObject(i) ?: continue
             if (KEY_FIELDS.any { provider.optString(it).let { key -> key.isNotEmpty() && key != MASK } }) continue
@@ -179,6 +189,7 @@ object ConfigIo {
         put("ttsRate", prefs.ttsRate.toDouble())
         put("followUpMs", prefs.followUpMs)
         put("pageOffers", prefs.pageOffers)
+        put("pageImages", prefs.pageImages)
         put("disabledFeatures", JSONArray(prefs.disabledFeatures.map { it.key }.sorted()))
         put("pagePort", prefs.pagePort)
         put("nightStart", prefs.nightStart)
@@ -207,6 +218,7 @@ object ConfigIo {
         if (settings.has("ttsRate")) prefs.ttsRate = settings.optDouble("ttsRate").toFloat()
         if (settings.has("followUpMs")) prefs.followUpMs = settings.optInt("followUpMs")
         if (settings.has("pageOffers")) prefs.pageOffers = settings.optBoolean("pageOffers")
+        if (settings.has("pageImages")) prefs.pageImages = settings.optBoolean("pageImages")
         disabledFeatures(settings)?.let { prefs.disabledFeatures = it }
         if (settings.has("pagePort")) prefs.pagePort = settings.optInt("pagePort").coerceIn(1024, 65535)
         NightMode.parse(settings.optString("nightStart"))?.let { prefs.nightStart = NightMode.format(it) }

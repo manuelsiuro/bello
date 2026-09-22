@@ -64,6 +64,11 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("pageOffers", true)
         set(v) = sp.edit().putBoolean("pageOffers", v).apply()
 
+    /** A picture on the page, when a picture service is configured in config.json (FR-PAGE-07). */
+    var pageImages: Boolean
+        get() = sp.getBoolean("pageImages", true)
+        set(v) = sp.edit().putBoolean("pageImages", v).apply()
+
     /** Where the tablet serves its pages; `adb forward tcp:8080 tcp:8080` reaches it from the Mac. */
     var pagePort: Int
         get() = sp.getInt("pagePort", 8080)

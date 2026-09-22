@@ -5,7 +5,9 @@
     "groq": "https://console.groq.com/keys",
     "mistral": "https://console.mistral.ai/api-keys",
     "cerebras": "https://cloud.cerebras.ai",
-    "openrouter": "https://openrouter.ai/keys"
+    "openrouter": "https://openrouter.ai/keys",
+    "cloudflare": "https://dash.cloudflare.com (AI → Workers AI → Use REST API)",
+    "pollinations": "https://enter.pollinations.ai"
   },
   "timeoutMs": 20000,
   "totalBudgetMs": 45000,
@@ -38,6 +40,23 @@
       "Arte": 7,
       "M6": 6
     }
+  },
+  "_images": "The picture on the details page (docs/page-images.md), tried in this order. Cloudflare: a free account, no card — dash.cloudflare.com → AI → Workers AI → Use REST API gives the token (Workers AI permission) and the account id. Pollinations: a free key at enter.pollinations.ai; without a key it still answers, with a weak model and its logo. Try a prompt from the Mac: scripts/image.sh.",
+  "images": {
+    "width": 1024,
+    "height": 768,
+    "budgetMs": 25000,
+    "providers": [
+      {
+        "preset": "cloudflare",
+        "accountId": "PUT_YOUR_CLOUDFLARE_ACCOUNT_ID_HERE",
+        "key": "PUT_YOUR_CLOUDFLARE_API_TOKEN_HERE"
+      },
+      {
+        "preset": "pollinations",
+        "key": "PUT_YOUR_POLLINATIONS_KEY_HERE"
+      }
+    ]
   },
   "fuel": "gazole",
   "_fuel": "The fuel the house buys: gazole, sp95, sp98, e10, e85 or gplc. Also holidayZone, schoolZone, schoolAcademy."

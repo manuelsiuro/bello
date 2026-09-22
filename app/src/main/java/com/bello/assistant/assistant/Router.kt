@@ -4,17 +4,21 @@ import android.content.Context
 import com.bello.assistant.core.AppConfig
 import com.bello.assistant.core.FileLog
 import com.bello.assistant.core.FrenchDates
+import com.bello.assistant.images.ImagePrompt
+import com.bello.assistant.images.PageImages
 import com.bello.assistant.llm.AskOptions
 import com.bello.assistant.llm.LlmGateway
 import com.bello.assistant.memory.BelloDb
 import com.bello.assistant.memory.FactStore
 import com.bello.assistant.memory.SessionMemory
+import com.bello.assistant.net.PageStore
 import com.bello.assistant.tools.Alarms
 import com.bello.assistant.tools.Fuel
 import com.bello.assistant.tools.FuelData
 import com.bello.assistant.tools.HolidayData
 import com.bello.assistant.tools.Holidays
 import com.bello.assistant.tools.Jokes
+import com.bello.assistant.tools.MarkdownLite
 import com.bello.assistant.tools.News
 import com.bello.assistant.tools.PagePublisher
 import com.bello.assistant.tools.Schedule
@@ -44,6 +48,8 @@ class Router(
     private val offersEnabled: () -> Boolean = { true },
     /** The owner's switches (docs/features.md), read on every question so a change needs no reload. */
     private val featureEnabled: (Feature) -> Boolean = { true },
+    /** A picture on the page, when a picture service is configured (FR-PAGE-07). */
+    private val imagesEnabled: () -> Boolean = { true },
 ) : Responder {
 
     /** What the conversation has to do on the side: stop ringing, refresh the countdown, show a page. */
@@ -68,6 +74,8 @@ class Router(
     private val jokes = Jokes(app)
     private val wikipedia = Wikipedia(app)
     private val tv: TvBox? = config.tvBox?.let { TvBox(app, it.host, it.port) }
+    /** The picture services of `config.json`; built on the first page, off the main thread. */
+    val images: PageImages by lazy { PageImages(app, config.images) }
 
     /** The offer the next utterance may be answering. Lost with the Router on a config reload. */
     @Volatile private var offer: PageOffer.Offer? = null
@@ -178,7 +186,9 @@ class Router(
                 listener.onPageFailed(ToolReplies.pageFailed())
                 return
             }
-            val page = pages.publish(full.text, host, full.truncated)
+            val split = ImagePrompt.split(full.text)
+            val image = illustrate(split)
+            val page = pages.publish(split.markdown, host, full.truncated, image)
             if (page == null) {
                 FileLog.w(TAG, "PAGE_FAILED reason=publish")
                 listener.onPageFailed(ToolReplies.pageFailed())
@@ -189,6 +199,27 @@ class Router(
             FileLog.w(TAG, "PAGE_FAILED reason=exception", t)
             runCatching { listener.onPageFailed(ToolReplies.pageFailed()) }
         }
+    }
+
+    /**
+     * The page's picture (FR-PAGE-07), or null — never a reason to fail the page. The author's own
+     * `[image: …]` line when it wrote one, else a calm illustration of the title.
+     */
+    private fun illustrate(split: ImagePrompt.Split): PageStore.Image? {
+        if (!imagesEnabled() || images.isEmpty) return null
+        val prompt = split.prompt ?: ImagePrompt.fallback(MarkdownLite.title(split.markdown))
+        if (prompt == null) {
+            FileLog.w(TAG, "PAGE_IMAGE none reason=no-prompt")
+            return null
+        }
+        val picture = images.illustrate(prompt)
+        if (picture == null) {
+            FileLog.w(TAG, "PAGE_IMAGE none reason=no-service prompt=${prompt.take(80)}")
+            return null
+        }
+        FileLog.i(TAG, "PAGE_IMAGE ms=${picture.ms} provider=${picture.source} bytes=${picture.bytes.size} " +
+            "authored=${split.prompt != null} prompt=${prompt.take(120)}")
+        return PageStore.Image(picture.bytes, picture.contentType)
     }
 
     /** Ringing was triggered by the alarm receiver, not by a question. */

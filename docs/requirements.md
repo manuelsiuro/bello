@@ -259,6 +259,7 @@ Priority: **M** = must (v1), **S** = should (v1 if feasible), **C** = could (lat
 | FR-PAGE-04 | The page is served by the tablet on the local network over plain HTTP: GET and HEAD only, in memory, at most 10 pages for 2 hours, unguessable ids, the port open only while a page exists. Nothing is written to disk and nothing leaves the LAN. | S |
 | FR-PAGE-05 | The face shows the QR code of the URL with a caption and the URL for three minutes at full brightness, night or not; a tap on the card, "stop", a newer page or the timeout hides it — never the next question. Bello announces the page aloud when it is idle. | S |
 | FR-PAGE-06 | Without a Wi-Fi address, or when the provider fails, Bello says so in one sentence and drops the offer. | S |
+| FR-PAGE-07 | The page may carry one picture that fits it: the page's author describes it in the same call, a free image service draws it (no card), and the tablet serves it next to the page, in memory, with the page. The phone never reaches the service. No picture within 25 s → the page without one. It can be switched off. ([page-images.md](page-images.md)) | C |
 
 ### 6.15 The television
 

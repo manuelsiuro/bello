@@ -12,11 +12,33 @@ object PageHtml {
         "<title>{{title}}</title></head><body><main>{{body}}</main>" +
         "<footer>Servi par Bello · {{meta}}</footer></body></html>"
 
-    /** The body goes in last, so nothing a model wrote can be mistaken for a placeholder. */
-    fun render(template: String, title: String, bodyHtml: String, meta: String): String = template
+    /**
+     * The body goes in last, so nothing a model wrote can be mistaken for a placeholder. The picture,
+     * when there is one, goes under the title — in any template, a pushed one included.
+     */
+    fun render(template: String, title: String, bodyHtml: String, meta: String, heroHtml: String = ""): String = template
         .replace("{{title}}", MarkdownLite.escape(title))
         .replace("{{meta}}", MarkdownLite.escape(meta))
-        .replace("{{body}}", bodyHtml)
+        .replace("{{body}}", withHero(bodyHtml, heroHtml))
+
+    /** The page's picture (FR-PAGE-07); its size is given so the text does not jump when it arrives. */
+    fun hero(src: String, alt: String, width: Int, height: Int): String =
+        "<img class=\"hero\" src=\"${MarkdownLite.escape(src)}\" alt=\"${MarkdownLite.escape(alt)}\" " +
+            "width=\"$width\" height=\"$height\">\n"
+
+    private fun withHero(body: String, hero: String): String {
+        if (hero.isEmpty()) return body
+        val end = body.indexOf("</h1>")
+        if (end < 0) return hero + body
+        val after = body.indexOf('\n', end).let { if (it < 0) end + "</h1>".length else it + 1 }
+        return body.substring(0, after) + hero + body.substring(after)
+    }
+
+    /** The picture of the demo page, written the way the page's author is told to (docs/page-images.md). */
+    const val SAMPLE_IMAGE_PROMPT = "Editorial food photograph of a stack of thin golden French crêpes on a " +
+        "white ceramic plate, dusted with sugar, a lemon half and a small jar of apricot jam beside it. " +
+        "Shot from a 45-degree angle on a weathered oak table with a crumpled linen napkin at the edge. " +
+        "Soft natural window light from the left, shallow depth of field, warm cosy tones."
 
     /** What `scripts/page.sh demo` publishes: the whole path without a provider. */
     val SAMPLE_MARKDOWN = """

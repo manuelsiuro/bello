@@ -47,6 +47,7 @@ The rule is in one place:
 | Jours fériés et vacances (`holidays`) | PublicHolidays, SchoolHolidays | « c'est férié demain ? », « c'est quand les vacances ? » | calendrier.api.gouv.fr, data.education.gouv.fr (cached) | information |
 | Discussion (`chat`) | None | anything else | the LLM gateway | chat, may offer the QR page |
 | Détails sur le téléphone (`pageOffers`) | « oui » after an offer | « oui », « vas-y » | provider + `net/PageServer` | ends; the QR code comes when the page is ready |
+| Une image sur la page (`pageImages`) | — (part of the page) | — | Cloudflare Workers AI (FLUX), then Pollinations ([page-images.md](page-images.md)) | a picture under the page's title; none in 25 s → the page without it |
 
 ## When something is switched off
 
@@ -59,6 +60,7 @@ The rule is in one place:
 - **Mémoire off**:
   - remember, forget and list say it is off
   - remembered facts are no longer sent to providers
+- **Une image sur la page off** → the page is written as before, without a picture, and no picture service is called. The same happens when `config.json` has no `images` block.
 - **Minuteurs et alarmes off** → timers and alarms already set still ring. Only new requests are refused.
 - **A provider switched off** (« Fournisseurs ») → `enabled: false` is written into `config.json` and the gateway is rebuilt through `MainActivity.reloadEverything()`. A provider without a key is shown, but it cannot be switched on from the screen.
 

@@ -133,6 +133,10 @@ class SettingsView(
             }
         }
         toggle("Détails sur le téléphone (code QR)", prefs.pageOffers) { prefs.pageOffers = it }
+        toggle("Une image sur la page", prefs.pageImages) {
+            prefs.pageImages = it
+            FileLog.i("settings", "PAGE_IMAGES=${if (it) "on" else "off"}")
+        }
         note("Une fonction désactivée le dit quand on la demande. Sans la discussion, Bello ne répond qu'avec ses outils.")
 
         section("Nuit")

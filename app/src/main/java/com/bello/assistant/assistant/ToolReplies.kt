@@ -318,6 +318,34 @@ object ToolReplies {
     fun qrCaption(title: String?): String = title ?: "Le détail de la réponse"
 
     /**
+     * The picture's prompt, written by the same author in the same call (FR-PAGE-07): one last line
+     * that [com.bello.assistant.images.ImagePrompt] takes out of the page. In English, because the
+     * image models understand photography and style words best in English; the style follows the
+     * kind of page (docs/page-images.md). Declared before [PAGE_SYSTEM], which reads it while the
+     * object initialises.
+     */
+    val PAGE_IMAGE_RULE: String = """
+        Enfin, termine par une seule ligne « [image: …] » : la description, EN ANGLAIS, d'une image
+        qui illustre la page, pour un générateur d'images. Un seul paragraphe de 40 à 90 mots, en
+        phrases complètes. Commence par le type d'image, choisi selon le sujet :
+        - recette : "Editorial food photograph of …", angle de 45 degrés (vue de dessus pour un plat
+          plat, une tarte, une salade), lumière naturelle d'une fenêtre, faible profondeur de champ,
+          quelques accessoires rustiques au bord du cadre ;
+        - mode d'emploi, bricolage, technique (monter, installer, réparer, fabriquer, régler un
+          appareil) : "Isometric 3D vector illustration of …", palette pastel douce, fond clair uni ;
+        - lieux, voyage, itinéraire : "Wide-angle editorial travel photograph of …", lumière dorée
+          de fin de journée ; pour plusieurs lieux, le premier seulement ;
+        - conseil sans geste technique (santé, sommeil, argent, organisation) : "Soft watercolor illustration of …",
+          palette calme, beaucoup d'espace vide ;
+        - enfants, jeu, fête : "Colorful 3D animated-film style render of …", formes arrondies.
+        Puis, dans cet ordre : un seul sujet principal bien visible, le décor et les accessoires, la
+        lumière, l'angle de vue, les couleurs, l'ambiance. Aucun texte, aucune lettre, aucune
+        étiquette, aucun logo dans l'image. Pas de personnes en gros plan, ni visages ni mains ;
+        au plus de petites silhouettes lointaines. Aucun nom de personne réelle, de marque ou
+        d'artiste. Décris ce qu'on voit, jamais ce qu'on ne voit pas.
+    """.trimIndent()
+
+    /**
      * The author of the page (FR-PAGE-03). It replaces the persona for that one call: Bello's
      * "three spoken sentences, no list" would contradict everything a page is for.
      */
@@ -334,7 +362,7 @@ object ToolReplies {
           puis « ## Étapes » en liste numérotée, puis « ## Conseils ».
         - pour une liste : « ## Liste » en puces, avec une courte explication par élément.
         Moins de quatre cents mots. Reste fidèle à ce qui a déjà été dit à voix haute.
-    """.trimIndent()
+    """.trimIndent() + "\n" + PAGE_IMAGE_RULE
 
     fun pagePrompt(question: String, spokenAnswer: String): String =
         "La question posée : « $question »\n" +

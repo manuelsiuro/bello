@@ -5,8 +5,8 @@ import java.util.Random
 
 /**
  * As much HTTP as a page for the phone needs (FR-PAGE-04, NFR-SEC-03): a GET or HEAD request
- * line, one of two paths, a response that closes the connection. Pure, unit tested; the socket
- * work is in [PageServer].
+ * line, one of three paths (the status, a page, its picture), a response that closes the
+ * connection. Pure, unit tested; the socket work is in [PageServer].
  */
 object PageProtocol {
 
@@ -21,6 +21,16 @@ object PageProtocol {
 
     private val REQUEST_LINE = Regex("^(GET|HEAD) (/\\S*) HTTP/1\\.[01]$")
     private val PAGE_PATH = Regex("^/r/([a-z0-9]{$ID_LENGTH})$")
+    private val IMAGE_PATH = Regex("^/r/([a-z0-9]{$ID_LENGTH})/img$")
+
+    /**
+     * The page may show its own picture and nothing else: no script, no frame, nothing from
+     * outside the tablet (FR-PAGE-07).
+     */
+    const val CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'"
+
+    /** Where a page's picture is served; the page refers to it by this path. */
+    fun imagePath(id: String) = "/r/$id/img"
 
     /** GET or HEAD only, path without its query; anything else is not a request Bello answers. */
     fun parse(requestLine: String?): Request? {
@@ -31,14 +41,26 @@ object PageProtocol {
 
     fun pageId(path: String): String? = PAGE_PATH.find(path)?.groupValues?.get(1)
 
+    fun imageId(path: String): String? = IMAGE_PATH.find(path)?.groupValues?.get(1)
+
     /**
      * `/` answers with a one-line status (a health check for `curl`); `/r/<id>` with the page;
-     * everything else is 404 without a hint, and a line that is not a request is 400.
+     * `/r/<id>/img` with its picture; everything else is 404 without a hint, and a line that is not
+     * a request is 400.
      */
-    fun route(requestLine: String?, page: (String) -> String?, summary: () -> String): Response {
+    fun route(
+        requestLine: String?,
+        page: (String) -> String?,
+        summary: () -> String,
+        image: (String) -> PageStore.Image? = { null },
+    ): Response {
         val request = parse(requestLine) ?: return text(400, "Bad request", headOnly = false)
         val headOnly = request.method == "HEAD"
         if (request.path == "/") return text(200, summary(), headOnly)
+        imageId(request.path)?.let { imageId ->
+            val picture = image(imageId) ?: return text(404, "Not found", headOnly)
+            return Response(200, picture.contentType, picture.bytes, headOnly)
+        }
         val id = pageId(request.path) ?: return text(404, "Not found", headOnly)
         val html = page(id) ?: return text(404, "Not found", headOnly)
         return Response(200, "text/html; charset=utf-8", html.toByteArray(Charsets.UTF_8), headOnly)
@@ -55,7 +77,7 @@ object PageProtocol {
             "Connection: close\r\n" +
             "Cache-Control: max-age=7200\r\n" +
             "X-Content-Type-Options: nosniff\r\n" +
-            "Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'\r\n" +
+            "Content-Security-Policy: $CSP\r\n" +
             "\r\n"
         val headBytes = head.toByteArray(Charsets.ISO_8859_1)
         return if (response.headOnly) headBytes else headBytes + response.body

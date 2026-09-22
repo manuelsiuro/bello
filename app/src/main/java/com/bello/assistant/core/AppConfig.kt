@@ -1,6 +1,7 @@
 package com.bello.assistant.core
 
 import android.content.Context
+import com.bello.assistant.images.ImageConfig
 import com.bello.assistant.llm.LlmConfig
 import org.json.JSONObject
 import java.io.File
@@ -25,6 +26,8 @@ data class AppConfig(
     val fuel: String = "gazole",
     /** The SFR TV decoder (docs/sfr-tv-box.md); null when `"tvBox": {"enabled": false}`. */
     val tvBox: TvBoxConfig? = TvBoxConfig(),
+    /** The picture services of the details page (FR-PAGE-07); none by default. */
+    val images: ImageConfig = ImageConfig(),
 ) {
     /**
      * Where the decoder is and what the household calls its channels. The defaults are the SFR
@@ -110,6 +113,7 @@ data class AppConfig(
                 schoolAcademy = root.optString("schoolAcademy").ifBlank { "Nice" },
                 fuel = root.optString("fuel").ifBlank { "gazole" },
                 tvBox = TvBoxConfig.parse(root.optJSONObject("tvBox")),
+                images = ImageConfig.parse(root.optJSONObject("images")),
             )
         }
 

@@ -35,6 +35,24 @@ class ConfigIoTest {
         assertTrue(!root.toString().contains("gsk_secret"))
     }
 
+    @Test fun `the picture services' keys are masked too`() {
+        val root = JSONObject("""{"providers":[],"images":{"providers":[
+            {"preset":"cloudflare","accountId":"acc","key":"cf-secret"},{"preset":"pollinations","apiKey":"pk_secret"}]}}""")
+        assertTrue(!ConfigIo.isMasked(root.toString()))
+        ConfigIo.mask(root)
+        assertTrue(ConfigIo.isMasked(root.toString()))
+        assertTrue(!root.toString().contains("cf-secret"))
+        assertTrue(!root.toString().contains("pk_secret"))
+    }
+
+    @Test fun `a masked picture key keeps the one already on the tablet`() {
+        val onDevice = JSONObject("""{"images":{"providers":[{"preset":"cloudflare","accountId":"acc","key":"real"}]}}""")
+        val edited = JSONObject("""{"images":{"providers":[{"preset":"cloudflare","accountId":"acc","key":"…"}]}}""")
+        ConfigIo::class.java.getDeclaredMethod("keepMaskedKeys", JSONObject::class.java, JSONObject::class.java)
+            .apply { isAccessible = true }.invoke(ConfigIo, edited, onDevice)
+        assertEquals("real", edited.getJSONObject("images").getJSONArray("providers").getJSONObject(0).getString("key"))
+    }
+
     @Test fun `a masked key keeps the one already on the tablet`() {
         val onDevice = JSONObject("""{"providers":[{"preset":"gemini","key":"real-key"}]}""")
         val edited = JSONObject("""{"providers":[{"preset":"gemini","key":"…","model":"new-model"}]}""")

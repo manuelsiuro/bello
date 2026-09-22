@@ -41,6 +41,20 @@ class PageProtocolTest {
         assertTrue(PageProtocol.route("HEAD /r/k3x9q2ab HTTP/1.1", page, summary).headOnly)
     }
 
+    @Test fun `a page's picture is served under its own path, and only that`() {
+        val jpeg = byteArrayOf(-1, -40, -1, 1, 2, 3)
+        val image = { id: String -> if (id == "k3x9q2ab") PageStore.Image(jpeg, "image/jpeg") else null }
+        val page = { _: String -> "<p>x</p>" }
+        val found = PageProtocol.route("GET /r/k3x9q2ab/img HTTP/1.1", page, { "up" }, image)
+        assertEquals(200, found.status)
+        assertEquals("image/jpeg", found.contentType)
+        assertArrayEquals(jpeg, found.body)
+        assertEquals(404, PageProtocol.route("GET /r/zzzzzzzz/img HTTP/1.1", page, { "up" }, image).status)
+        assertEquals(404, PageProtocol.route("GET /r/k3x9q2ab/img2 HTTP/1.1", page, { "up" }, image).status)
+        assertEquals(404, PageProtocol.route("GET /r/k3x9q2ab/img HTTP/1.1", page, { "up" }).status)
+        assertEquals("k3x9q2ab", PageProtocol.imageId(PageProtocol.imagePath("k3x9q2ab")))
+    }
+
     @Test fun `a response counts its bytes, closes the connection and locks the page down`() {
         val body = "Crêpes"  // 7 bytes in UTF-8, 6 characters
         val bytes = PageProtocol.encode(PageProtocol.Response(200, "text/html; charset=utf-8", body.toByteArray()))
@@ -48,7 +62,7 @@ class PageProtocolTest {
         assertTrue(text.startsWith("HTTP/1.1 200 OK\r\n"))
         assertTrue(text.contains("Content-Length: 7\r\n"))
         assertTrue(text.contains("Connection: close\r\n"))
-        assertTrue(text.contains("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'\r\n"))
+        assertTrue(text.contains("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src 'self'\r\n"))
         assertTrue(text.endsWith("\r\n\r\nCrêpes"))
         val head = PageProtocol.encode(PageProtocol.Response(200, "text/html; charset=utf-8", body.toByteArray(), headOnly = true))
         assertTrue(String(head).endsWith("\r\n\r\n"))

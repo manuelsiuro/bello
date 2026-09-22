@@ -53,6 +53,8 @@ scripts/page.sh demo|status|off|open|ask    # the details on the phone: a page s
 scripts/tv.sh status|on|off|key|channel|ask  # the SFR TV decoder, straight from the Mac or through Bello
 scripts/features.sh status|on <key>|off <key>  # switch a feature (chat tv timers memory weather news fuel wikipedia jokes holidays)
 scripts/stand.sh build|slice|all              # the desk stand: Blender -> STL + checks, then Cura's print time
+scripts/image.sh "<prompt>" [cloudflare|pollinations|anonymous]  # draw one page picture from the Mac
+scripts/page.sh images [on|off]               # the page's picture: switch it, or the services' state
 ```
 
 API keys: copy `config/bello.example.json` to `config/bello.local.json` (git-ignored), add your free
@@ -110,6 +112,12 @@ Home screen: after installing, press Home on the tablet and choose Bello → "Al
   the LAN (GET only, memory only, port `pagePort`, open only while a page exists), `tools/QrCode`
   (ZXing core) gives the face the modules to draw. The card is never hidden by the next turn — a tap
   on it, "stop", a newer page or three minutes; the screen brightness has one rule, `brightnessFor()`.
+- The page's picture (`images/`, docs/page-images.md): the page's author ends its Markdown with an
+  English `[image: …]` line (`ToolReplies.PAGE_IMAGE_RULE`, a style per kind of page);
+  `images/ImagePrompt` takes it out, `images/ImageGateway` asks the `images.providers` of
+  `config.json` in order (Cloudflare FLUX, then Pollinations) within 25 s, and the tablet serves the
+  picture at `/r/<id>/img` with its page (CSP `img-src 'self'`). No picture in time → the page
+  without one, never a failed page. Image keys are masked on export like the chat keys.
 - The television: `tools/TvBox` drives the SFR decoder (an STB8, `docs/sfr-tv-box.md`) over a plain
   WebSocket on port 7682 — no key, no pairing, one connection per command. The box answers `OK` to
   anything, so a key name is only ever proven on the screen. Intents come from `assistant/Intents`

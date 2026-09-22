@@ -6,6 +6,7 @@ import android.os.Looper
 import com.bello.assistant.core.FileLog
 import com.bello.assistant.llm.LlmGateway
 import com.bello.assistant.net.LocalAddress
+import com.bello.assistant.net.PageProtocol
 import com.bello.assistant.net.PageServer
 import com.bello.assistant.net.PageStore
 import java.io.File
@@ -33,19 +34,26 @@ class PagePublisher(
     /** The tablet's address on the Wi-Fi, or null when it has none. */
     fun address(): String? = address.invoke()
 
-    /** Not for the main thread. Null when nothing could be served; the reason is in the log. */
-    fun publish(markdown: String, host: String, truncated: Boolean = false): Published? {
+    /**
+     * Not for the main thread. Null when nothing could be served; the reason is in the log.
+     * @param image the page's picture (FR-PAGE-07), served next to it and gone with it
+     */
+    fun publish(markdown: String, host: String, truncated: Boolean = false, image: PageStore.Image? = null): Published? {
         try {
             if (!server.start()) return null
             val title = MarkdownLite.title(markdown)
-            val html = PageHtml.render(
-                template(), title ?: "Bello", MarkdownLite.toHtml(markdown, truncated), LlmGateway.dateLabel(Date()),
-            )
-            val id = store.publish(html, clock())
+            val body = MarkdownLite.toHtml(markdown, truncated)
+            val template = template()
+            var chars = 0
+            val id = store.publish(image, clock()) { id ->
+                val hero = if (image == null) "" else PageHtml.hero(PageProtocol.imagePath(id), title ?: "", 4, 3)
+                PageHtml.render(template, title ?: "Bello", body, LlmGateway.dateLabel(Date()), hero)
+                    .also { chars = it.length }
+            }
             val url = "http://$host:${server.boundPort}/r/$id"
             val rows = QrCode.modules(url)
             main.post { scheduleSweep() }
-            FileLog.i(TAG, "PAGE_PUBLISHED id=$id url=$url chars=${html.length} title=${title ?: "-"}")
+            FileLog.i(TAG, "PAGE_PUBLISHED id=$id url=$url chars=$chars image=${image?.bytes?.size ?: 0} title=${title ?: "-"}")
             return Published(id, url, title, rows)
         } catch (t: Throwable) {
             FileLog.w(TAG, "PAGE_PUBLISH_FAILED ${t.javaClass.simpleName}: ${t.message}")

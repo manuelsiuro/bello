@@ -31,6 +31,7 @@ import com.bello.assistant.core.NightMode
 import com.bello.assistant.core.Prefs
 import com.bello.assistant.net.Connectivity
 import com.bello.assistant.net.LocalAddress
+import com.bello.assistant.net.PageStore
 import com.bello.assistant.tools.PageHtml
 import com.bello.assistant.presence.Presence
 import com.bello.assistant.BelloApp
@@ -369,7 +370,7 @@ class MainActivity : Activity(), FaceView.Listener {
     private fun newRouter(gateway: LlmGateway) =
         Router(this, gateway, AppConfig.load(this), routerListener, (application as BelloApp).pages(),
             isOnline = network::isOnline, offersEnabled = { prefs.pageOffers },
-            featureEnabled = { prefs.isEnabled(it) })
+            featureEnabled = { prefs.isEnabled(it) }, imagesEnabled = { prefs.pageImages })
 
     private fun reloadEverything() {
         val fresh = (application as BelloApp).reloadGateway()
@@ -458,10 +459,13 @@ class MainActivity : Activity(), FaceView.Listener {
         intent.getStringExtra(EXTRA_PAGE)?.let { command ->
             val pages = (application as BelloApp).pages()
             when (command) {
-                // The whole path without a provider: the built-in recipe, served and shown.
+                // The whole path without a chat provider: the built-in recipe, served and shown —
+                // with its picture when a picture service is configured and switched on.
                 "demo" -> Thread({
                     val host = pages.address() ?: "127.0.0.1"
-                    val page = pages.publish(PageHtml.SAMPLE_MARKDOWN, host)
+                    val image = if (!prefs.pageImages) null else router.images.illustrate(PageHtml.SAMPLE_IMAGE_PROMPT)
+                        ?.let { PageStore.Image(it.bytes, it.contentType) }
+                    val page = pages.publish(PageHtml.SAMPLE_MARKDOWN, host, image = image)
                     if (page == null) FileLog.w(TAG, "PAGE_DEMO failed")
                     else runOnUiThread {
                         showPage(page.url, page.qrRows, ToolReplies.qrCaption(page.title))
@@ -475,6 +479,14 @@ class MainActivity : Activity(), FaceView.Listener {
                     hidePage("command")
                     Thread({ pages.stop() }, "page-off").start()
                 }
+                "images:on", "images:off" -> {
+                    prefs.pageImages = command == "images:on"
+                    FileLog.i(TAG, "PAGE_IMAGES=${if (prefs.pageImages) "on" else "off"}")
+                }
+                "images" -> Thread({
+                    val lines = router.images.statusLines().ifEmpty { listOf("no picture service in config.json") }
+                    FileLog.i(TAG, "PAGE_IMAGES=${if (prefs.pageImages) "on" else "off"} " + lines.joinToString(" | "))
+                }, "page-images").start()
                 else -> FileLog.w(TAG, "unknown page command '$command'")
             }
         }

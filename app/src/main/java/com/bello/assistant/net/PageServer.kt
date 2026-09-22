@@ -68,7 +68,7 @@ class PageServer(
     }
 
     fun status(): String =
-        if (isRunning) "up port=$boundPort pages=${store.size()} served=${served.get()}"
+        if (isRunning) "up port=$boundPort pages=${store.size()} images=${store.imageBytes() / 1024}KB served=${served.get()}"
         else "down pages=${store.size()}"
 
     private fun acceptLoop(server: ServerSocket) {
@@ -109,6 +109,7 @@ class PageServer(
                 requestLine,
                 page = { id -> store.get(id, clock()) },
                 summary = { "Bello · ${status()}\n" },
+                image = { id -> store.image(id, clock()) },
             )
             val out = client.getOutputStream()
             out.write(PageProtocol.encode(response))

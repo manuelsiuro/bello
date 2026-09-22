@@ -7,6 +7,7 @@
 - Implementation plan and phase status: [docs/implementation-plan.md](docs/implementation-plan.md)
 - Every action Bello takes, the service behind it, its switch and what happens after it answers: [docs/features.md](docs/features.md)
 - Studies: free services Bello could use, checked with real calls: [docs/free-services.md](docs/free-services.md); the SFR TV decoder and how it is driven: [docs/sfr-tv-box.md](docs/sfr-tv-box.md)
+- The printed desk stand (the Minion's body; Blender model, fit, print time): [docs/tablet-stand.md](docs/tablet-stand.md)
 
 ## Primary device
 
@@ -51,6 +52,7 @@ scripts/soak.sh start|report|stop           # the unattended run: crashes, netwo
 scripts/page.sh demo|status|off|open|ask    # the details on the phone: a page served by the tablet, a QR code on the face
 scripts/tv.sh status|on|off|key|channel|ask  # the SFR TV decoder, straight from the Mac or through Bello
 scripts/features.sh status|on <key>|off <key>  # switch a feature (chat tv timers memory weather news fuel wikipedia jokes holidays)
+scripts/stand.sh build|slice|all              # the desk stand: Blender -> STL + checks, then Cura's print time
 ```
 
 API keys: copy `config/bello.example.json` to `config/bello.local.json` (git-ignored), add your free

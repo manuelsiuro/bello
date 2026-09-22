@@ -101,6 +101,32 @@ class ConfigIoTest {
         assertEquals(false, ConfigIo.providerSwitches(root).single().hasKey)
     }
 
+    @Test fun `a picture service switch flips only that service, never a chat provider`() {
+        val root = JSONObject("""{"providers":[{"preset":"pollinations","key":"chat"}],"images":{"providers":[
+            {"preset":"cloudflare","accountId":"acc","key":"cf-secret"},
+            {"preset":"pollinations","id":"pollen"}]}}""")
+        assertTrue(ConfigIo.setImageEnabled(root, "cloudflare", false))
+        assertEquals(false, ConfigIo.setImageEnabled(root, "pollinations", false))  // named by its id
+        val switches = ConfigIo.imageSwitches(root).associateBy { it.name }
+        assertEquals(false, switches.getValue("cloudflare").enabled)
+        assertEquals(true, switches.getValue("pollen").enabled)
+        assertEquals("cf-secret", root.getJSONObject("images").getJSONArray("providers").getJSONObject(0).getString("key"))
+        // The chat provider of the same name is not a picture service.
+        assertTrue(!root.getJSONArray("providers").getJSONObject(0).has("enabled"))
+        assertTrue(ConfigIo.setProviderEnabled(root, "pollinations", false))
+        assertEquals(true, ConfigIo.imageSwitches(root).associateBy { it.name }.getValue("pollen").enabled)
+    }
+
+    @Test fun `Cloudflare needs a key and an account, Pollinations answers without a key`() {
+        val root = JSONObject("""{"images":{"providers":[
+            {"preset":"cloudflare","key":"cf-secret"},{"preset":"pollinations"}]}}""")
+        val switches = ConfigIo.imageSwitches(root).associateBy { it.name }
+        assertEquals(false, switches.getValue("cloudflare").hasKey)
+        assertTrue(switches.getValue("pollinations").hasKey)
+        assertTrue(switches.getValue("pollinations").keyless)
+        assertEquals(emptyList<ConfigIo.ProviderSwitch>(), ConfigIo.imageSwitches(JSONObject("{}")))
+    }
+
     @Test fun `switched-off features travel as keys, and unknown ones are dropped`() {
         val settings = JSONObject("""{"disabledFeatures":["weather","tv","teleportation"]}""")
         assertEquals(setOf(Feature.WEATHER, Feature.TV), ConfigIo.disabledFeatures(settings))

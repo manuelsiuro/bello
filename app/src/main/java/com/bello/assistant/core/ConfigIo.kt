@@ -132,17 +132,17 @@ object ConfigIo {
 
     // --- One switch per provider, on the settings screen ---------------------------------------
 
-    /** A provider entry of config.json as the settings screen shows it. */
-    data class ProviderSwitch(val name: String, val enabled: Boolean, val hasKey: Boolean)
+    /**
+     * A provider entry of config.json as the settings screen shows it. [keyless] is a service that
+     * answers without a key but does less (Pollinations: a weaker model and its logo).
+     */
+    data class ProviderSwitch(val name: String, val enabled: Boolean, val hasKey: Boolean, val keyless: Boolean = false)
 
-    fun providerSwitches(context: Context): List<ProviderSwitch> =
-        providerSwitches(runCatching { JSONObject(AppConfig.file(context).readText()) }.getOrElse { JSONObject() })
+    fun providerSwitches(context: Context): List<ProviderSwitch> = providerSwitches(readConfig(context))
 
     /** What the file says, with a preset's own default when `enabled` is left out (Gemini Web is off). */
-    fun providerSwitches(root: JSONObject): List<ProviderSwitch> {
-        val providers = root.optJSONArray("providers") ?: return emptyList()
-        return (0 until providers.length()).mapNotNull { i ->
-            val provider = providers.optJSONObject(i) ?: return@mapNotNull null
+    fun providerSwitches(root: JSONObject): List<ProviderSwitch> =
+        entries(root.optJSONArray("providers")).mapNotNull { provider ->
             val name = nameOf(provider).ifEmpty { return@mapNotNull null }
             val preset = LlmConfig.PRESETS[provider.optString("preset", provider.optString("id"))]
             val keyless = preset?.type == ProviderConfig.Type.GEMINI_WEB ||
@@ -150,33 +150,73 @@ object ConfigIo {
             ProviderSwitch(
                 name = name,
                 enabled = provider.optBoolean("enabled", preset?.enabled ?: true),
-                hasKey = keyless || KEY_FIELDS.any { provider.optString(it).isNotBlank() },
+                hasKey = keyless || hasKey(provider),
             )
         }
-    }
 
     /** Writes the switch into config.json; the caller reloads through `MainActivity.reloadEverything()`. */
-    fun setProviderEnabled(context: Context, name: String, on: Boolean): Boolean {
+    fun setProviderEnabled(context: Context, name: String, on: Boolean): Boolean =
+        writeSwitch(context, "PROVIDER", name, on) { setProviderEnabled(it, name, on) }
+
+    /** Only `enabled` of the named entry changes; keys and everything else are left as they are. */
+    fun setProviderEnabled(root: JSONObject, name: String, on: Boolean): Boolean =
+        setEnabled(root.optJSONArray("providers"), name, on, ::nameOf)
+
+    // --- One switch per picture service (`images.providers`) ---------------------------------
+
+    fun imageSwitches(context: Context): List<ProviderSwitch> = imageSwitches(readConfig(context))
+
+    /**
+     * Named the way `ImageConfig.parse` names them. Cloudflare is usable only with a key and an
+     * account id; Pollinations answers without a key, so it always has a switch.
+     */
+    fun imageSwitches(root: JSONObject): List<ProviderSwitch> =
+        entries(root.optJSONObject("images")?.optJSONArray("providers")).mapNotNull { service ->
+            val name = imageNameOf(service).ifEmpty { return@mapNotNull null }
+            val preset = service.optString("preset", service.optString("id")).lowercase()
+            val keyed = hasKey(service)
+            ProviderSwitch(
+                name = name,
+                enabled = service.optBoolean("enabled", true),
+                hasKey = if (preset == "cloudflare") keyed && service.optString("accountId").isNotBlank() else true,
+                keyless = preset == "pollinations" && !keyed,
+            )
+        }
+
+    /** Writes the switch into config.json; the caller reloads through `MainActivity.reloadEverything()`. */
+    fun setImageEnabled(context: Context, name: String, on: Boolean): Boolean =
+        writeSwitch(context, "IMAGE_PROVIDER", name, on) { setImageEnabled(it, name, on) }
+
+    fun setImageEnabled(root: JSONObject, name: String, on: Boolean): Boolean =
+        setEnabled(root.optJSONObject("images")?.optJSONArray("providers"), name, on, ::imageNameOf)
+
+    private fun readConfig(context: Context): JSONObject =
+        runCatching { JSONObject(AppConfig.file(context).readText()) }.getOrElse { JSONObject() }
+
+    private fun writeSwitch(context: Context, what: String, name: String, on: Boolean, change: (JSONObject) -> Boolean): Boolean {
         val file = AppConfig.file(context)
         val root = runCatching { JSONObject(file.readText()) }.getOrElse { return false }
-        if (!setProviderEnabled(root, name, on)) return false
+        if (!change(root)) return false
         return runCatching { file.writeText(root.toString(2)) }
-            .onSuccess { FileLog.i(TAG, "PROVIDER_SWITCHED $name enabled=$on") }
-            .onFailure { FileLog.w(TAG, "PROVIDER_SWITCH_FAILED $name", it) }
+            .onSuccess { FileLog.i(TAG, "${what}_SWITCHED $name enabled=$on") }
+            .onFailure { FileLog.w(TAG, "${what}_SWITCH_FAILED $name", it) }
             .isSuccess
     }
 
-    /** Only `enabled` of the named entry changes; keys and everything else are left as they are. */
-    fun setProviderEnabled(root: JSONObject, name: String, on: Boolean): Boolean {
-        val providers = root.optJSONArray("providers") ?: return false
-        for (i in 0 until providers.length()) {
-            val provider = providers.optJSONObject(i) ?: continue
-            if (nameOf(provider) != name) continue
-            provider.put("enabled", on)
-            return true
-        }
-        return false
+    private fun setEnabled(array: JSONArray?, name: String, on: Boolean, nameOf: (JSONObject) -> String): Boolean {
+        val entry = entries(array).firstOrNull { nameOf(it) == name } ?: return false
+        entry.put("enabled", on)
+        return true
     }
+
+    private fun entries(array: JSONArray?): List<JSONObject> =
+        if (array == null) emptyList() else (0 until array.length()).mapNotNull { array.optJSONObject(it) }
+
+    private fun hasKey(entry: JSONObject) = KEY_FIELDS.any { entry.optString(it).isNotBlank() }
+
+    /** A picture service is named by its id, or by its preset — as `ImageConfig.parse` does. */
+    private fun imageNameOf(service: JSONObject): String =
+        service.optString("id").ifEmpty { service.optString("preset") }
 
     /** Providers are named by their preset, or by an explicit id. */
     private fun nameOf(provider: JSONObject): String =

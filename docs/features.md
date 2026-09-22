@@ -61,6 +61,7 @@ The rule is in one place:
   - remember, forget and list say it is off
   - remembered facts are no longer sent to providers
 - **Une image sur la page off** → the page is written as before, without a picture, and no picture service is called. The same happens when `config.json` has no `images` block.
+- **A picture service switched off** (« Images ») → `enabled: false` is written into its `images.providers` entry and the Router rebuilds its picture services through `MainActivity.reloadEverything()`. The next service in the list draws the picture. With every service off, the page comes without a picture, the same as having no `images` block.
 - **Minuteurs et alarmes off** → timers and alarms already set still ring. Only new requests are refused.
 - **A provider switched off** (« Fournisseurs ») → `enabled: false` is written into `config.json` and the gateway is rebuilt through `MainActivity.reloadEverything()`. A provider without a key is shown, but it cannot be switched on from the screen.
 

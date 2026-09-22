@@ -320,7 +320,7 @@ class MainActivity : Activity(), FaceView.Listener {
                 "night" -> applyNight()
                 "presence" -> restartPresence()
                 "overlay" -> overlay.show(prefs.overlayEnabled)
-                "import", "providers" -> reloadEverything()
+                "import", "providers", "images" -> reloadEverything()
             }
         }
 
@@ -328,6 +328,13 @@ class MainActivity : Activity(), FaceView.Listener {
 
         override fun setProviderEnabled(name: String, on: Boolean): Boolean =
             ConfigIo.setProviderEnabled(this@MainActivity, name, on)
+
+        override fun imageLines(): List<String> = router.images.statusLines()
+
+        override fun imageSwitches(): List<ConfigIo.ProviderSwitch> = ConfigIo.imageSwitches(this@MainActivity)
+
+        override fun setImageEnabled(name: String, on: Boolean): Boolean =
+            ConfigIo.setImageEnabled(this@MainActivity, name, on)
 
         override fun testProvider() = Thread({
             val answer = gateway.answer("Dis bonjour en une phrase.")

@@ -127,7 +127,12 @@ Other presets that stay consistent, kept for later:
   - `providers`, in order: `cloudflare` (`accountId`, `key`), `pollinations` (`key`, optional).
   - See `config/bello.example.json`.
   - The keys are masked by `settings.sh export`, like the chat keys, and kept on import when masked.
-- The switch « Une image sur la page » (`pageImages`, on by default). It is on the settings screen,
-  in the export, and in `scripts/page.sh images on|off`.
+- The switch « Une image sur la page » (`pageImages`, on by default). It is in the « Images »
+  section of the settings screen, in the export, and in `scripts/page.sh images on|off`.
+- The same section shows each service's state and has one switch per service. A switch writes
+  `enabled` into its `images.providers` entry and rebuilds everything through
+  `MainActivity.reloadEverything()`. Cloudflare without a key or an `accountId` is shown but cannot
+  be switched on. Pollinations can always be switched on: without a key it gets the weak model and
+  the logo.
 - `scripts/page.sh images` shows each service's state: ok and failed counts, today's use, and any
   cooldown.

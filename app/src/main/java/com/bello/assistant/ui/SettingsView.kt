@@ -43,6 +43,11 @@ class SettingsView(
         fun providerSwitches(): List<ConfigIo.ProviderSwitch>
         /** False when config.json could not be written; true means the gateway must be rebuilt. */
         fun setProviderEnabled(name: String, on: Boolean): Boolean
+        /** The picture services of the details page, as `scripts/page.sh images` shows them. */
+        fun imageLines(): List<String>
+        fun imageSwitches(): List<ConfigIo.ProviderSwitch>
+        /** False when config.json could not be written; true means the images must be rebuilt. */
+        fun setImageEnabled(name: String, on: Boolean): Boolean
         fun memoryLine(): String
         fun forgetEverything()
         fun close()
@@ -133,11 +138,25 @@ class SettingsView(
             }
         }
         toggle("Détails sur le téléphone (code QR)", prefs.pageOffers) { prefs.pageOffers = it }
+        note("Une fonction désactivée le dit quand on la demande. Sans la discussion, Bello ne répond qu'avec ses outils.")
+
+        // The picture of the details page (docs/page-images.md): the switch, then one per service.
+        section("Images")
         toggle("Une image sur la page", prefs.pageImages) {
             prefs.pageImages = it
             FileLog.i("settings", "PAGE_IMAGES=${if (it) "on" else "off"}")
         }
-        note("Une fonction désactivée le dit quand on la demande. Sans la discussion, Bello ne répond qu'avec ses outils.")
+        val services = host.imageSwitches()
+        if (services.isEmpty()) note("Aucun service d'image dans la configuration.")
+        host.imageLines().forEach { note(it) }
+        services.forEach { service ->
+            if (!service.hasKey) note("${service.name} : sans clé")
+            else toggle(service.name + if (service.keyless) " (sans clé : modèle faible, logo)" else "", service.enabled) {
+                if (host.setImageEnabled(service.name, it)) host.onSettingsChanged("images")
+                else say("Je n'ai pas pu écrire la configuration.")
+            }
+        }
+        note("La page s'écrit sans image si aucun service ne répond en 25 s. Les clés se modifient dans le fichier de configuration.")
 
         section("Nuit")
         time("Début", prefs.nightStart) { prefs.nightStart = it; host.onSettingsChanged("night") }
